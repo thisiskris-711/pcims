@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create PWA Screenshots</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .screenshot-container { 
+            border: 2px solid #007bff; 
+            margin: 20px 0; 
+            padding: 20px; 
+            background: #f8f9fc;
+            border-radius: 8px;
+        }
+        .desktop { width: 1280px; height: 720px; }
+        .mobile { width: 375px; height: 667px; }
+        .header { background: #007bff; color: white; padding: 15px; margin: 0; }
+        .sidebar { 
+            background: #343a40; 
+            color: white; 
+            width: 250px; 
+            height: 100%; 
+            float: left;
+            padding: 20px;
+        }
+        .content { 
+            margin-left: 250px; 
+            padding: 20px;
+            height: calc(100% - 30px);
+            overflow: hidden;
+        }
+        .card { 
+            background: white; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn { 
+            background: #007bff; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .logo { font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+        .nav-item { padding: 10px 0; border-bottom: 1px solid #555; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            text-align: center;
+            flex: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mobile .sidebar { width: 60px; }
+        .mobile .content { margin-left: 60px; }
+        .mobile .stats { flex-direction: column; }
+        .mobile .nav-item { text-align: center; font-size: 20px; }
+        .mobile .logo { text-align: center; font-size: 16px; }
+        .instructions { 
+            background: #e7f3ff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h2>📸 PWA Screenshot Creator</h2>
+        <p><strong>Instructions:</strong></p>
+        <ol>
+            <li>Take screenshots of the dashboard and mobile views below</li>
+            <li>Save them as: <code>desktop-wide.png</code> and <code>mobile-narrow.png</code></li>
+            <li>Place them in: <code>/images/screenshots/</code> directory</li>
+            <li>Refresh your browser to see the PWA install improvements</li>
+        </ol>
+        <p><em>Use browser dev tools to set exact dimensions (1280x720 and 375x667)</em></p>
+    </div>
+
+    <div class="screenshot-container desktop">
+        <h3>Desktop Screenshot (1280x720)</h3>
+        <div style="width: 1280px; height: 720px; overflow: hidden; border: 1px solid #ddd;">
+            <div class="header">PCIMS - Personal Collection Inventory Management System</div>
+            <div style="display: flex; height: calc(100% - 30px);">
+                <div class="sidebar">
+                    <div class="logo">📦 PCIMS</div>
+                    <div class="nav-item">📊 Dashboard</div>
+                    <div class="nav-item">📦 Products</div>
+                    <div class="nav-item">📋 Inventory</div>
+                    <div class="nav-item">💰 Sales</div>
+                    <div class="nav-item">🛒 Purchases</div>
+                    <div class="nav-item">📈 Reports</div>
+                    <div class="nav-item">⚙️ Settings</div>
+                </div>
+                <div class="content">
+                    <h2>Dashboard Overview</h2>
+                    <div class="stats">
+                        <div class="stat-card">
+                            <h3>156</h3>
+                            <p>Total Products</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>12</h3>
+                            <p>Low Stock</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>₱45,678</h3>
+                            <p>Inventory Value</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>3</h3>
+                            <p>New Orders</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Recent Activity</h3>
+                        <p>• Product "Laptop Stand" stock updated (50 units)</p>
+                        <p>• New sales order #1234 received</p>
+                        <p>• Low stock alert for "USB Cables"</p>
+                        <p>• Purchase order #567 delivered</p>
+                    </div>
+                    <div class="card">
+                        <h3>Quick Actions</h3>
+                        <button class="btn">➕ Add Product</button>
+                        <button class="btn">📦 New Stock In</button>
+                        <button class="btn">💰 Create Sale</button>
+                        <button class="btn">📊 View Report</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="screenshot-container mobile">
+        <h3>Mobile Screenshot (375x667)</h3>
+        <div style="width: 375px; height: 667px; overflow: hidden; border: 1px solid #ddd;">
+            <div class="header">PCIMS</div>
+            <div style="display: flex; height: calc(100% - 30px);">
+                <div class="sidebar">
+                    <div class="logo">📦</div>
+                    <div class="nav-item">📊</div>
+                    <div class="nav-item">📦</div>
+                    <div class="nav-item">📋</div>
+                    <div class="nav-item">💰</div>
+                </div>
+                <div class="content">
+                    <h2>Dashboard</h2>
+                    <div class="stats">
+                        <div class="stat-card">
+                            <h3>156</h3>
+                            <p>Products</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>12</h3>
+                            <p>Low Stock</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>₱45.7K</h3>
+                            <p>Value</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Recent Activity</h3>
+                        <p>• Laptop Stand: +50 units</p>
+                        <p>• Order #1234 received</p>
+                        <p>• USB Cables low stock</p>
+                    </div>
+                    <div class="card">
+                        <button class="btn" style="width: 100%;">➕ Add Product</button>
+                        <button class="btn" style="width: 100%;">📦 Stock In</button>
+                        <button class="btn" style="width: 100%;">💰 New Sale</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add screenshot instructions
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('PWA Screenshot Creator');
+            console.log('Desktop: Set browser to 1280x720 and screenshot the desktop view');
+            console.log('Mobile: Set browser to 375x667 and screenshot the mobile view');
+        });
+    </script>
+</body>
+</html>

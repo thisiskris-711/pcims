@@ -1,0 +1,23 @@
+{
+  "name": "PCIMS - Personal Collection Inventory Management System",
+  "short_name": "PCIMS",
+  "description": "A comprehensive inventory management system for personal collections",
+  "start_url": "/pcims/",
+  "scope": "/pcims/",
+  "display": "standalone",
+  "background_color": "#f8f9fc",
+  "theme_color": "#007bff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/pcims/images/pc-logo-2.png",
+      "sizes": "224x224",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}

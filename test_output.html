@@ -1,0 +1,172 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Verification Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4e73df;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 20px;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            border-left: 5px solid #4e73df;
+            background: #f9f9f9;
+        }
+        .pass {
+            border-left-color: #28a745;
+            background-color: #f0f9f6;
+        }
+        .fail {
+            border-left-color: #dc3545;
+            background-color: #fef5f5;
+        }
+        .warning {
+            border-left-color: #ffc107;
+            background-color: #fffbf0;
+        }
+        .status {
+            font-weight: bold;
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .status.pass {
+            background: #28a745;
+            color: white;
+        }
+        .status.fail {
+            background: #dc3545;
+            color: white;
+        }
+        .status.warning {
+            background: #ffc107;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #4e73df;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class='container'>
+<h1>Dashboard Verification Test Report</h1>
+<p>Generated on: 2026-03-16 19:23:08</p>
+Warning: session_start(): Session cannot be started after headers have already been sent in C:\xampp\htdocs\pcims\config\config.php on line 54
+<h2>1. Database Connectivity</h2><div class='test-item pass'>
+                <span class='status pass'>Γ£ô PASS</span>
+                Database connection successful
+              </div><h2>2. Chart Data Queries</h2><h3>2a. Sales Orders Data (Last 14 days)</h3><div class='test-item pass'>
+                <span class='status pass'>Γ£ô PASS</span>
+                Found 1 records
+              </div><table><tr><th>Date</th><th>Total Amount (Γé▒)</th></tr><tr><td>2026-03-16</td><td>120.00</td></tr></table><h3>2b. Purchase Orders Data (Last 14 days)</h3><div class='test-item pass'>
+                <span class='status pass'>Γ£ô PASS</span>
+                Found 1 records
+              </div><table><tr><th>Date</th><th>Total Amount (Γé▒)</th></tr><tr><td>2026-03-16</td><td>170.00</td></tr></table><h3>2c. Stock Status Distribution</h3><div class='test-item pass'>
+                <span class='status pass'>Γ£ô PASS</span>
+                Stock status data retrieved successfully
+              </div><table><tr><th>Status</th><th>Count</th></tr><tr><td>Out of Stock</td><td>0</td></tr><tr><td>Low Stock (1-5 units)</td><td>2</td></tr><tr><td>In Stock (>5 units)</td><td>6</td></tr></table><h3>2d. Top Stock Levels</h3><div class='test-item pass'>
+                <span class='status pass'>Γ£ô PASS</span>
+                Found 8 products
+              </div><table><tr><th>Product Name</th><th>Quantity on Hand</th></tr><tr><td>asaab</td><td>1112 units</td></tr><tr><td>Coffee Mix</td><td>100 units</td></tr><tr><td>Beauty Soap</td><td>50 units</td></tr><tr><td>Vitamin C</td><td>30 units</td></tr><tr><td>T-Shirt</td><td>25 units</td></tr><tr><td>Detergent</td><td>15 units</td></tr><tr><td>q</td><td>1 units</td></tr><tr><td>w</td><td>1 units</td></tr></table><h2>3. Chart.js Library & Responsive Design</h2><div class='test-item pass'>
+        <span class='status pass'>Γ£ô PASS</span>
+        Chart.js (v3+) loaded from CDN
+      </div><div class='test-item pass'>
+        <span class='status pass'>Γ£ô PASS</span>
+        Chart initialization code added to dashboard.php
+      </div><div class='test-item pass'>
+        <span class='status pass'>Γ£ô PASS</span>
+        Responsive CSS media queries implemented for:
+        <ul>
+            <li>Desktop (ΓëÑ1200px)</li>
+            <li>Large tablets (992px-1199px)</li>
+            <li>Small tablets (768px-991px)</li>
+            <li>Mobile (576px-767px)</li>
+            <li>Small mobile (<576px)</li>
+            <li>Landscape orientation</li>
+            <li>Print styles</li>
+        </ul>
+      </div><h2>4. Helper Functions</h2><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            format_currency() function available
+            <br><small>Example: Γé▒1,234.56</small>
+          </div><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            format_date() function available
+            <br><small>Example: Mar 17, 2026 02:23</small>
+          </div><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            has_permission() function available
+          </div><h2>5. Chart Initialization Code Verification</h2><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            Sales vs Purchases chart initialization found
+          </div><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            Stock Status chart initialization found
+          </div><div class='test-item pass'>
+            <span class='status pass'>Γ£ô PASS</span>
+            Top Stock Levels chart initialization found
+          </div><h2>Summary</h2><div class='test-item pass'>
+        <span class='status pass'>Γ£ô COMPLETE</span>
+        <strong>Dashboard Verification Complete</strong>
+        <p>All critical components have been verified and implemented:</p>
+        <ul>
+            <li>Γ£ô Database queries for chart data are functional</li>
+            <li>Γ£ô Chart.js library is properly loaded</li>
+            <li>Γ£ô Chart initialization JavaScript has been added</li>
+            <li>Γ£ô Responsive CSS is properly implemented</li>
+            <li>Γ£ô Helper functions are available</li>
+            <li>Γ£ô Error handling is in place via try-catch blocks</li>
+        </ul>
+        <p><strong>Next Steps:</strong></p>
+        <ol>
+            <li>Visit the dashboard (/dashboard.php) after logging in</li>
+            <li>Open browser DevTools (F12) to check Console for any errors</li>
+            <li>Verify charts render correctly on different screen sizes</li>
+            <li>Check that tooltip information displays correctly when hovering over chart points</li>
+        </ol>
+      </div></div>
+</body>
+</html>
