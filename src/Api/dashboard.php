@@ -4,7 +4,7 @@
  * GET ?action=sales_chart&days=30
  * GET ?action=category_chart
  */
-require_once dirname(__DIR__) . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 
 $action = $_GET['action'] ?? '';

@@ -45,5 +45,11 @@ ini_set('log_errors', 1);
 
 // Include core files
 require_once __DIR__ . '/database.php';
-require_once ROOT_PATH . '/includes/helpers.php';
-require_once ROOT_PATH . '/includes/auth.php';
+require_once ROOT_PATH . '/src/Utils/helpers.php';
+require_once ROOT_PATH . '/src/Utils/auth.php';
+require_once ROOT_PATH . '/src/Utils/RateLimiter.php';
+
+// Enforce Rate Limiting for all API endpoints (max 100 requests per 60 seconds)
+if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
+    enforceRateLimit('api_global', 100, 60);
+}

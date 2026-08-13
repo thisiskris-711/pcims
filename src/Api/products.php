@@ -6,7 +6,7 @@
  * PUT    — Update product (id in query)
  * DELETE — Delete product (id in query)
  */
-require_once dirname(__DIR__) . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 
 $method = $_SERVER['REQUEST_METHOD'];

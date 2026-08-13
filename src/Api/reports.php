@@ -2,7 +2,7 @@
 /**
  * Reports API
  */
-require_once dirname(__DIR__) . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 requireRole(ROLE_ADMIN, ROLE_MANAGER);
 

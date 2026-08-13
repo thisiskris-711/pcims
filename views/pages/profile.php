@@ -2,7 +2,7 @@
 /**
  * Profile Page
  */
-require_once __DIR__ . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 
 $db = getDB();
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    redirect(APP_URL . '/profile.php');
+    redirect(APP_URL . '/profile');
 }
 
 // Re-fetch user data
@@ -62,7 +62,7 @@ $user = $stmt->fetch();
 
 $pageTitle = 'Profile';
 $currentPage = 'profile';
-include __DIR__ . '/includes/header.php';
+include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <div style="max-width:700px;">
@@ -136,4 +136,4 @@ include __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include dirname(__DIR__) . '/layouts/footer.php'; ?>

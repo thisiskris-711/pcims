@@ -2,7 +2,7 @@
 /**
  * Products Page
  */
-require_once __DIR__ . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 requireRole(ROLE_ADMIN, ROLE_MANAGER);
 
@@ -12,7 +12,7 @@ $categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
 $pageTitle = 'Products';
 $currentPage = 'products';
 $pageScripts = ['products.js'];
-include __DIR__ . '/includes/header.php';
+include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <!-- Toolbar -->
@@ -85,4 +85,4 @@ include __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include dirname(__DIR__) . '/layouts/footer.php'; ?>

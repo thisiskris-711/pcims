@@ -1,0 +1,109 @@
+<?php
+/**
+ * Front Controller (Router)
+ */
+require_once dirname(__DIR__) . '/config/app.php';
+
+// Get the requested path
+$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Remove the APP_URL base from the request URI to get the relative route
+$basePath = parse_url(APP_URL, PHP_URL_PATH);
+if (strpos($requestUri, $basePath) === 0) {
+    $route = substr($requestUri, strlen($basePath));
+} else {
+    $route = $requestUri;
+}
+
+// Clean up slashes
+$route = '/' . trim($route, '/');
+
+// Extremely simple router
+switch ($route) {
+    case '/':
+    case '/dashboard':
+        require dirname(__DIR__) . '/views/pages/dashboard.php';
+        break;
+        
+    case '/login':
+        require dirname(__DIR__) . '/views/auth/login.php';
+        break;
+        
+    case '/logout':
+        require dirname(__DIR__) . '/src/Utils/logout.php';
+        break;
+        
+    case '/pos':
+        require dirname(__DIR__) . '/views/pages/pos.php';
+        break;
+        
+    case '/products':
+        require dirname(__DIR__) . '/views/pages/products.php';
+        break;
+        
+    case '/product_form':
+        require dirname(__DIR__) . '/views/pages/product_form.php';
+        break;
+        
+    case '/categories':
+        require dirname(__DIR__) . '/views/pages/categories.php';
+        break;
+        
+    case '/stock':
+        require dirname(__DIR__) . '/views/pages/stock.php';
+        break;
+        
+    case '/sales':
+        require dirname(__DIR__) . '/views/pages/sales.php';
+        break;
+        
+    case '/reports':
+        require dirname(__DIR__) . '/views/pages/reports.php';
+        break;
+        
+    case '/users':
+        require dirname(__DIR__) . '/views/pages/users.php';
+        break;
+        
+    case '/profile':
+        require dirname(__DIR__) . '/views/pages/profile.php';
+        break;
+        
+    // --- API ROUTES ---
+    case '/api/products':
+        require dirname(__DIR__) . '/src/Api/products.php';
+        break;
+        
+    case '/api/categories':
+        require dirname(__DIR__) . '/src/Api/categories.php';
+        break;
+        
+    case '/api/stock':
+        require dirname(__DIR__) . '/src/Api/stock.php';
+        break;
+        
+    case '/api/sales':
+        require dirname(__DIR__) . '/src/Api/sales.php';
+        break;
+        
+    case '/api/dashboard':
+        require dirname(__DIR__) . '/src/Api/dashboard.php';
+        break;
+        
+    case '/api/reports':
+        require dirname(__DIR__) . '/src/Api/reports.php';
+        break;
+        
+    case '/api/users':
+        require dirname(__DIR__) . '/src/Api/users.php';
+        break;
+        
+    case '/api/export_pdf':
+        require dirname(__DIR__) . '/src/Api/export_pdf.php';
+        break;
+
+    default:
+        http_response_code(404);
+        echo "404 Not Found: " . htmlspecialchars($route);
+        break;
+}

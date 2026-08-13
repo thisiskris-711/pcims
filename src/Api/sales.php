@@ -2,7 +2,7 @@
 /**
  * Sales API
  */
-require_once dirname(__DIR__) . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 
 $method = $_SERVER['REQUEST_METHOD'];

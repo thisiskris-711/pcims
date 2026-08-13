@@ -2,7 +2,7 @@
 /**
  * Product Add/Edit Form
  */
-require_once __DIR__ . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 requireRole(ROLE_ADMIN, ROLE_MANAGER);
 
@@ -77,13 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('Product created successfully!');
         }
         
-        redirect(APP_URL . '/products.php');
+        redirect(APP_URL . '/products');
     }
 }
 
 $pageTitle = $isEdit ? 'Edit Product' : 'Add Product';
 $currentPage = 'products';
-include __DIR__ . '/includes/header.php';
+include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <div style="max-width:800px;">
@@ -206,4 +206,4 @@ include __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include dirname(__DIR__) . '/layouts/footer.php'; ?>

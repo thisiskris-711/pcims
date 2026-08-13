@@ -88,7 +88,7 @@ function requireLogin(): void {
             echo json_encode(['error' => 'Authentication required']);
             exit;
         }
-        redirect(APP_URL . '/login.php');
+        redirect(APP_URL . '/login');
     }
 }
 
@@ -107,7 +107,7 @@ function requireRole(string ...$roles): void {
             exit;
         }
         flashMessage('You do not have permission to access this page.', 'error');
-        redirect(APP_URL . '/index.php');
+        redirect(APP_URL . '');
     }
 }
 

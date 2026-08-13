@@ -2,20 +2,19 @@
 /**
  * Login Page
  */
-session_start();
+require_once dirname(__DIR__, 2) . '/config/app.php';
 
-// If already logged in, redirect to dashboard
 if (isset($_SESSION['user_id'])) {
-    header('Location: /antigravitytest/index.php');
+    header('Location: ' . APP_URL . '');
     exit;
 }
-
-require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/includes/helpers.php';
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Strict rate limiting: Max 5 login attempts per 5 minutes (300 seconds)
+    enforceRateLimit('login', 5, 300);
+
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     
@@ -41,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$user['id']]);
             
             session_regenerate_id(true);
-            header('Location: /antigravitytest/index.php');
+            header('Location: ' . APP_URL . '');
             exit;
         } else {
             $error = 'Invalid username or password.';
@@ -60,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <link rel="stylesheet" href="/antigravitytest/assets/css/style.css">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css">
 </head>
 <body>
     <div class="login-page">

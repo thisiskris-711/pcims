@@ -2,7 +2,7 @@
 /**
  * Point of Sale Page
  */
-require_once __DIR__ . '/config/app.php';
+require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
 
 $db = getDB();
@@ -12,7 +12,7 @@ $taxRate = (float) getSetting('tax_rate', '12');
 $pageTitle = 'Point of Sale';
 $currentPage = 'pos';
 $pageScripts = ['pos.js'];
-include __DIR__ . '/includes/header.php';
+include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <div class="pos-layout">
@@ -155,4 +155,4 @@ include __DIR__ . '/includes/header.php';
     window.TAX_RATE = <?= $taxRate ?>;
 </script>
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include dirname(__DIR__) . '/layouts/footer.php'; ?>
