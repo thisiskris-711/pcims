@@ -14,7 +14,13 @@ switch ($method) {
         
         if ($action === 'detail') {
             $id = (int)($_GET['id'] ?? 0);
-            $sale = $db->prepare("SELECT s.*, u.full_name as cashier FROM sales s LEFT JOIN users u ON s.created_by = u.id WHERE s.id = ?");
+            $sale = $db->prepare("
+                SELECT s.*, u.full_name as cashier, d.name as dealer_name, d.dealer_code
+                FROM sales s 
+                LEFT JOIN users u ON s.created_by = u.id 
+                LEFT JOIN dealers d ON s.dealer_id = d.id
+                WHERE s.id = ?
+            ");
             $sale->execute([$id]);
             $saleData = $sale->fetch();
             
@@ -57,10 +63,11 @@ switch ($method) {
         $offset = ($page - 1) * $perPage;
         
         $stmt = $db->prepare("
-            SELECT s.*, u.full_name as cashier,
+            SELECT s.*, u.full_name as cashier, d.name as dealer_name, d.dealer_code,
                    (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as item_count
             FROM sales s 
             LEFT JOIN users u ON s.created_by = u.id
+            LEFT JOIN dealers d ON s.dealer_id = d.id
             WHERE $where
             ORDER BY s.created_at DESC
             LIMIT $perPage OFFSET $offset
@@ -76,20 +83,32 @@ switch ($method) {
         break;
         
     case 'POST':
+        requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER);
         $input = json_decode(file_get_contents('php://input'), true);
         
         if (!$input) jsonResponse(['error' => 'Invalid request body'], 400);
         
         $items = $input['items'] ?? [];
-        $customerName = trim($input['customer_name'] ?? 'Walk-in Customer');
+        $dealerId = (int)($input['dealer_id'] ?? 0);
         $discount = (float)($input['discount'] ?? 0);
         $paymentMethod = $input['payment_method'] ?? 'cash';
+        $paymentStatus = $input['payment_status'] ?? 'paid';
         $notes = trim($input['notes'] ?? '');
         
         if (empty($items)) jsonResponse(['error' => 'Cart is empty'], 400);
+        if (!$dealerId) jsonResponse(['error' => 'A registered dealer must be selected'], 400);
+        if (!in_array($paymentStatus, ['paid', 'credit'])) jsonResponse(['error' => 'Invalid payment status'], 400);
         
         $db->beginTransaction();
         try {
+            // Validate dealer
+            $dealerStmt = $db->prepare("SELECT id, name, credit_limit, credit_balance, status FROM dealers WHERE id = ? FOR UPDATE");
+            $dealerStmt->execute([$dealerId]);
+            $dealer = $dealerStmt->fetch();
+            
+            if (!$dealer) throw new Exception('Dealer not found');
+            if ($dealer['status'] !== 'active') throw new Exception("Dealer '{$dealer['name']}' is {$dealer['status']}. Cannot process sale.");
+            
             $subtotal = 0;
             $validatedItems = [];
             
@@ -126,14 +145,22 @@ switch ($method) {
             $tax = round($taxableAmount * ($taxRate / 100), 2);
             $total = round($taxableAmount + $tax, 2);
             
+            // If credit sale, validate credit limit (hard block)
+            if ($paymentStatus === 'credit') {
+                $availableCredit = (float)$dealer['credit_limit'] - (float)$dealer['credit_balance'];
+                if ($total > $availableCredit) {
+                    throw new Exception("Sale total (\${$total}) exceeds dealer's available credit (\${$availableCredit}). Credit limit: \${$dealer['credit_limit']}, Outstanding: \${$dealer['credit_balance']}");
+                }
+            }
+            
             $invoiceNo = generateInvoiceNo();
             
             // Insert sale
             $saleStmt = $db->prepare("
-                INSERT INTO sales (invoice_no, customer_name, subtotal, discount, tax, total, payment_method, payment_status, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)
+                INSERT INTO sales (invoice_no, dealer_id, subtotal, discount, tax, total, payment_method, payment_status, notes, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $saleStmt->execute([$invoiceNo, $customerName, $subtotal, $discount, $tax, $total, $paymentMethod, $notes, getCurrentUserId()]);
+            $saleStmt->execute([$invoiceNo, $dealerId, $subtotal, $discount, $tax, $total, $paymentMethod, $paymentStatus, $notes, getCurrentUserId()]);
             $saleId = $db->lastInsertId();
             
             // Insert sale items + update stock
@@ -150,6 +177,18 @@ switch ($method) {
                     ->execute([$vi['product_id'], $vi['quantity'], $newStock, $ref, "POS Sale: $invoiceNo", getCurrentUserId()]);
             }
             
+            // If credit sale, charge the dealer's account
+            if ($paymentStatus === 'credit') {
+                $newBalance = round((float)$dealer['credit_balance'] + $total, 2);
+                $db->prepare("UPDATE dealers SET credit_balance = ? WHERE id = ?")->execute([$newBalance, $dealerId]);
+                
+                $creditRef = 'CR-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                $db->prepare("
+                    INSERT INTO credit_transactions (dealer_id, sale_id, type, amount, balance_after, reference_no, notes, created_by)
+                    VALUES (?, ?, 'charge', ?, ?, ?, ?, ?)
+                ")->execute([$dealerId, $saleId, $total, $newBalance, $creditRef, "Credit sale: $invoiceNo", getCurrentUserId()]);
+            }
+            
             $db->commit();
             
             jsonResponse([
@@ -158,6 +197,7 @@ switch ($method) {
                 'sale_id' => $saleId,
                 'invoice_no' => $invoiceNo,
                 'total' => $total,
+                'payment_status' => $paymentStatus,
             ]);
         } catch (Exception $e) {
             $db->rollBack();

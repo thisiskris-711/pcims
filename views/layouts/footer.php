@@ -19,9 +19,9 @@
         // Initialize Lucide icons
         lucide.createIcons();
         
-        // CSRF token for AJAX requests
         window.CSRF_TOKEN = '<?= generateCSRFToken() ?>';
         window.APP_URL = '<?= APP_URL ?>';
+        window.APP_NAME = '<?= sanitize(APP_NAME) ?>';
     </script>
 </body>
 </html>

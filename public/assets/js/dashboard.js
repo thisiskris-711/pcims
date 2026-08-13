@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadSalesChart(days = 30) {
     try {
-        const data = await apiRequest(`/api/dashboard.php?action=sales_chart&days=${days}`);
+        const data = await apiRequest(`/api/dashboard?action=sales_chart&days=${days}`);
         renderSalesChart(data);
     } catch (e) {
         console.error('Failed to load sales chart:', e);
@@ -98,7 +98,7 @@ function renderSalesChart(data) {
 
 async function loadCategoryChart() {
     try {
-        const data = await apiRequest('/api/dashboard.php?action=category_chart');
+        const data = await apiRequest('/api/dashboard?action=category_chart');
         renderCategoryChart(data);
     } catch (e) {
         console.error('Failed to load category chart:', e);

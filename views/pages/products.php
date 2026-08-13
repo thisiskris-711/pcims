@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
 
 $db = getDB();
 $categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
@@ -35,9 +35,11 @@ include dirname(__DIR__) . '/layouts/header.php';
         </select>
     </div>
     <div class="toolbar-right">
-        <a href="<?= APP_URL ?>/product_form.php" class="btn btn-primary" id="addProductBtn">
+        <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
+        <a href="<?= APP_URL ?>/product_form" class="btn btn-primary" id="addProductBtn">
             <i data-lucide="plus" style="width:18px;height:18px;"></i> Add Product
         </a>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -56,7 +58,9 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <th>Price</th>
                         <th>Stock</th>
                         <th>Status</th>
+                        <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
                         <th style="width:100px;">Actions</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody id="productsBody">
@@ -85,4 +89,7 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 
+<script>
+    window.CAN_EDIT = <?= hasRole(ROLE_ADMIN, ROLE_MANAGER) ? 'true' : 'false' ?>;
+</script>
 <?php include dirname(__DIR__) . '/layouts/footer.php'; ?>

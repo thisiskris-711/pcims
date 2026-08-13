@@ -2087,3 +2087,62 @@ textarea.form-control {
         background: white;
     }
 }
+
+/* Breadcrumb Styles */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.breadcrumb ol {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    gap: 8px;
+}
+
+.breadcrumb a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.breadcrumb a:hover {
+    color: var(--primary-color);
+}
+
+.breadcrumb .separator {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.breadcrumb .current {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+/* ── Dealer Dropdown ── */
+.dealer-dropdown {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.dealer-option:hover {
+    background: var(--bg-tertiary) !important;
+}
+
+/* ── Clickable Rows ── */
+.clickable-row {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.clickable-row:hover {
+    background: var(--bg-tertiary) !important;
+}

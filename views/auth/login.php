@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="InventoryPro - Login to your inventory management system">
-    <title>Sign In - InventoryPro</title>
+    <meta name="description" content="<?= htmlspecialchars(APP_NAME) ?> - Login to your inventory management system">
+    <title>Sign In - <?= htmlspecialchars(APP_NAME) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="login-card">
                 <div class="login-logo">
                     <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNfTh_LuBglCEZy1s4gsEvMOL5sqDUhu2QSiXQZfjELMCHt7lnQfU7S1U&s=10" alt="Logo" style="height: 48px; object-fit: contain;">
-                    <span class="logo-text">InventoryPro</span>
+                    <span class="logo-text"><?= htmlspecialchars(APP_NAME) ?></span>
                 </div>
                 
                 <h2 class="login-title">Welcome back</h2>

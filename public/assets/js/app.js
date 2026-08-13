@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sidebarClose = document.getElementById('sidebarClose');
     const modalOverlay = document.getElementById('modalOverlay');
     
+    // Move all modals to the body to prevent stacking context issues with the overlay
+    document.querySelectorAll('.modal').forEach(m => document.body.appendChild(m));
+    
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
             sidebar.classList.toggle('open');

@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER, ROLE_AUDITOR);
 
 $db = getDB();
 $products = $db->query("SELECT id, name, sku, quantity FROM products WHERE status='active' ORDER BY name")->fetchAll();
@@ -117,7 +117,7 @@ async function loadStockHistory() {
     const params = new URLSearchParams({ type, date_from: dateFrom, date_to: dateTo, page: stockPage });
     
     try {
-        const data = await apiRequest(`/api/stock.php?${params}`);
+        const data = await apiRequest(`/api/stock?${params}`);
         renderStock(data);
     } catch (e) {
         showToast('Failed to load stock history', 'error');
@@ -194,7 +194,7 @@ async function submitStock(e) {
     });
     
     try {
-        const result = await apiRequest('/api/stock.php', { method: 'POST', body });
+        const result = await apiRequest('/api/stock', { method: 'POST', body });
         showToast(result.message || 'Stock recorded');
         closeModal('stockModal');
         loadStockHistory();

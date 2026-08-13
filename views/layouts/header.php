@@ -46,54 +46,69 @@ $flash = getFlashMessage();
         <nav class="sidebar-nav">
             <div class="nav-section">
                 <span class="nav-section-title">Main</span>
-                <a href="<?= APP_URL ?>/index.php" class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>">
+                <a href="<?= APP_URL ?>/" class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>">
                     <i data-lucide="layout-dashboard" style="width:20px;height:20px;"></i>
                     <span>Dashboard</span>
                 </a>
-                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STAFF)): ?>
-                <a href="<?= APP_URL ?>/pos.php" class="nav-link <?= $currentPage === 'pos' ? 'active' : '' ?>">
+                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER)): ?>
+                <a href="<?= APP_URL ?>/pos" class="nav-link <?= $currentPage === 'pos' ? 'active' : '' ?>">
                     <i data-lucide="shopping-cart" style="width:20px;height:20px;"></i>
                     <span>Point of Sale</span>
                 </a>
                 <?php endif; ?>
             </div>
             
-            <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
+            <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER, ROLE_AUDITOR)): ?>
             <div class="nav-section">
                 <span class="nav-section-title">Inventory</span>
-                <a href="<?= APP_URL ?>/products.php" class="nav-link <?= $currentPage === 'products' ? 'active' : '' ?>">
+                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR)): ?>
+                <a href="<?= APP_URL ?>/products" class="nav-link <?= $currentPage === 'products' ? 'active' : '' ?>">
                     <i data-lucide="box" style="width:20px;height:20px;"></i>
                     <span>Products</span>
                 </a>
-                <a href="<?= APP_URL ?>/categories.php" class="nav-link <?= $currentPage === 'categories' ? 'active' : '' ?>">
+                <a href="<?= APP_URL ?>/categories" class="nav-link <?= $currentPage === 'categories' ? 'active' : '' ?>">
                     <i data-lucide="tags" style="width:20px;height:20px;"></i>
                     <span>Categories</span>
                 </a>
-                <a href="<?= APP_URL ?>/stock.php" class="nav-link <?= $currentPage === 'stock' ? 'active' : '' ?>">
+                <?php endif; ?>
+                <a href="<?= APP_URL ?>/stock" class="nav-link <?= $currentPage === 'stock' ? 'active' : '' ?>">
                     <i data-lucide="arrow-left-right" style="width:20px;height:20px;"></i>
                     <span>Stock Movement</span>
                 </a>
             </div>
             <?php endif; ?>
+
             
+            <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, ROLE_AUDITOR)): ?>
             <div class="nav-section">
                 <span class="nav-section-title">Sales</span>
-                <a href="<?= APP_URL ?>/sales.php" class="nav-link <?= $currentPage === 'sales' ? 'active' : '' ?>">
+                <a href="<?= APP_URL ?>/sales" class="nav-link <?= $currentPage === 'sales' ? 'active' : '' ?>">
                     <i data-lucide="receipt" style="width:20px;height:20px;"></i>
                     <span>Sales History</span>
                 </a>
-                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
-                <a href="<?= APP_URL ?>/reports.php" class="nav-link <?= $currentPage === 'reports' ? 'active' : '' ?>">
+                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR)): ?>
+                <a href="<?= APP_URL ?>/reports" class="nav-link <?= $currentPage === 'reports' ? 'active' : '' ?>">
                     <i data-lucide="bar-chart-3" style="width:20px;height:20px;"></i>
                     <span>Reports</span>
                 </a>
                 <?php endif; ?>
             </div>
-            
+            <?php endif; ?>
+
+            <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, ROLE_AUDITOR)): ?>
+            <div class="nav-section">
+                <span class="nav-section-title">Dealers</span>
+                <a href="<?= APP_URL ?>/dealers" class="nav-link <?= $currentPage === 'dealers' ? 'active' : '' ?>">
+                    <i data-lucide="building-2" style="width:20px;height:20px;"></i>
+                    <span>Dealers</span>
+                </a>
+            </div>
+            <?php endif; ?>
+
             <?php if (hasRole(ROLE_ADMIN)): ?>
             <div class="nav-section">
                 <span class="nav-section-title">Administration</span>
-                <a href="<?= APP_URL ?>/users.php" class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
+                <a href="<?= APP_URL ?>/users" class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
                     <i data-lucide="users" style="width:20px;height:20px;"></i>
                     <span>Users</span>
                 </a>
@@ -123,15 +138,24 @@ $flash = getFlashMessage();
                     <i data-lucide="menu" style="width:22px;height:22px;"></i>
                 </button>
                 <div class="page-title-wrapper">
+                    <nav class="breadcrumb" aria-label="breadcrumb">
+                        <ol>
+                            <li><a href="<?= APP_URL ?>/dashboard">Home</a></li>
+                            <?php if ($currentPage !== 'dashboard'): ?>
+                                <li class="separator"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></li>
+                                <li class="current"><?= sanitize($pageTitle) ?></li>
+                            <?php endif; ?>
+                        </ol>
+                    </nav>
                     <h1 class="page-title"><?= sanitize($pageTitle) ?></h1>
                 </div>
             </div>
             <div class="topbar-right">
                 <div class="topbar-actions">
-                    <a href="<?= APP_URL ?>/profile.php" class="topbar-btn" title="Profile">
+                    <a href="<?= APP_URL ?>/profile" class="topbar-btn" title="Profile">
                         <i data-lucide="user" style="width:20px;height:20px;"></i>
                     </a>
-                    <a href="<?= APP_URL ?>/logout.php" class="topbar-btn" title="Logout" onclick="return confirm('Are you sure you want to logout?')">
+                    <a href="<?= APP_URL ?>/logout" class="topbar-btn" title="Logout" onclick="return confirm('Are you sure you want to logout?')">
                         <i data-lucide="log-out" style="width:20px;height:20px;"></i>
                     </a>
                 </div>

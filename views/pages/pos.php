@@ -4,6 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER);
 
 $db = getDB();
 $categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
@@ -96,8 +97,14 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
     <div class="modal-body">
         <div class="form-group">
-            <label class="form-label">Customer Name</label>
-            <input type="text" class="form-control" id="customerName" value="Walk-in Customer" placeholder="Customer name">
+            <label class="form-label">Dealer *</label>
+            <div style="position:relative;" id="dealerSelectWrapper">
+                <input type="text" class="form-control" id="dealerSearchInput" placeholder="Search dealer by name or code..." autocomplete="off">
+                <input type="hidden" id="selectedDealerId" value="">
+                <div class="dealer-dropdown" id="dealerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--border-radius-sm);max-height:200px;overflow-y:auto;z-index:100;margin-top:4px;"></div>
+            </div>
+            <div id="selectedDealerInfo" style="display:none;background:var(--bg-tertiary);padding:10px 14px;border-radius:var(--border-radius-sm);margin-top:8px;">
+            </div>
         </div>
         <div class="form-row">
             <div class="form-group">
@@ -109,6 +116,17 @@ include dirname(__DIR__) . '/layouts/header.php';
                     <option value="other">Other</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label class="form-label">Payment Status</label>
+                <select class="form-control" id="paymentStatus" onchange="onPaymentStatusChange()">
+                    <option value="paid">Paid (Settled Now)</option>
+                    <option value="credit">Credit (Charge to Dealer)</option>
+                </select>
+            </div>
+        </div>
+        <div id="creditWarning" style="display:none;background:var(--warning-color)15;border:1px solid var(--warning-color)33;color:var(--warning-color);padding:10px 14px;border-radius:var(--border-radius-sm);font-size:0.85rem;margin-bottom:12px;">
+        </div>
+        <div class="form-row">
             <div class="form-group">
                 <label class="form-label">Order Discount ($)</label>
                 <input type="number" class="form-control" id="orderDiscount" value="0" min="0" step="0.01" onchange="updateCartTotals()">

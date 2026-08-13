@@ -147,7 +147,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 Low Stock Products
             </h3>
             <?php if ($lowStockCount > 0): ?>
-            <a href="<?= APP_URL ?>/products.php?filter=low_stock" class="btn btn-ghost btn-sm">View All</a>
+            <a href="<?= APP_URL ?>/products?filter=low_stock" class="btn btn-ghost btn-sm">View All</a>
             <?php endif; ?>
         </div>
         <div class="card-body">

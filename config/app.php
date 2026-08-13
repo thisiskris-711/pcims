@@ -26,7 +26,9 @@ define('DEFAULT_TAX_RATE', 12); // percent
 // Roles
 define('ROLE_ADMIN', 'admin');
 define('ROLE_MANAGER', 'manager');
-define('ROLE_STAFF', 'staff');
+define('ROLE_CASHIER', 'cashier');
+define('ROLE_STOCKER', 'stocker');
+define('ROLE_AUDITOR', 'auditor');
 
 // Session config
 if (session_status() === PHP_SESSION_NONE) {

@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
 
 $pageTitle = 'Reports';
 $currentPage = 'reports';
@@ -94,7 +94,7 @@ async function loadReport() {
     });
     
     try {
-        const data = await apiRequest(`/api/reports.php?${params}`);
+        const data = await apiRequest(`/api/reports?${params}`);
         renderReport(data);
     } catch (e) {
         showToast('Failed to generate report', 'error');
@@ -104,7 +104,7 @@ async function loadReport() {
 function exportReport() {
     const dateFrom = document.getElementById('reportFrom')?.value || '';
     const dateTo = document.getElementById('reportTo')?.value || '';
-    window.open(`${APP_URL}/api/reports.php?action=${currentReport}&date_from=${dateFrom}&date_to=${dateTo}&export=csv`);
+    window.open(`${APP_URL}/api/reports?action=${currentReport}&date_from=${dateFrom}&date_to=${dateTo}&export=csv`);
 }
 
 function renderReport(data) {

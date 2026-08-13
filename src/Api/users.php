@@ -22,7 +22,7 @@ switch ($method) {
         $email = trim($input['email'] ?? '');
         $password = $input['password'] ?? '';
         $fullName = trim($input['full_name'] ?? '');
-        $role = $input['role'] ?? 'staff';
+        $role = $input['role'] ?? 'cashier';
         
         if (empty($username) || empty($email) || empty($password) || empty($fullName)) {
             jsonResponse(['error' => 'All fields are required'], 400);

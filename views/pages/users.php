@@ -77,7 +77,9 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <div class="form-group">
                     <label class="form-label">Role *</label>
                     <select class="form-control" id="userRole" required>
-                        <option value="staff">Staff</option>
+                        <option value="cashier">Cashier</option>
+                        <option value="stocker">Stocker</option>
+                        <option value="auditor">Auditor</option>
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
                     </select>
@@ -100,7 +102,7 @@ document.addEventListener('DOMContentLoaded', loadUsers);
 
 async function loadUsers() {
     try {
-        const data = await apiRequest('/api/users.php');
+        const data = await apiRequest('/api/users');
         renderUsers(data.data || []);
     } catch (e) {
         showToast('Failed to load users', 'error');
@@ -112,7 +114,7 @@ function renderUsers(users) {
     const roleBadge = { admin: 'badge-rose', manager: 'badge-violet', staff: 'badge-cyan' };
     
     tbody.innerHTML = users.map(u => `
-        <tr>
+        <tr class="clickable-row" onclick='editUser(${JSON.stringify(u)})'>
             <td>
                 <div class="d-flex align-center gap-1">
                     <div class="user-avatar" style="width:32px;height:32px;font-size:0.75rem;">${u.full_name.charAt(0).toUpperCase()}</div>
@@ -127,16 +129,17 @@ function renderUsers(users) {
             <td class="text-muted">${new Date(u.created_at).toLocaleDateString()}</td>
             <td>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='editUser(${JSON.stringify(u)})'>
+                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='event.stopPropagation(); editUser(${JSON.stringify(u)})'>
                         <i data-lucide="pencil" style="width:15px;height:15px;"></i>
                     </button>
                     ${u.id != currentUserId ? `
-                    <button class="btn btn-ghost btn-icon sm" title="Toggle Status" onclick="toggleUserStatus(${u.id}, '${u.status}')">
+                    <button class="btn btn-ghost btn-icon sm" title="Toggle Status" onclick="event.stopPropagation(); toggleUserStatus(${u.id}, '${u.status}')">
                         <i data-lucide="${u.status === 'active' ? 'user-x' : 'user-check'}" style="width:15px;height:15px;color:${u.status === 'active' ? 'var(--accent-amber)' : 'var(--accent-emerald)'};"></i>
                     </button>
-                    <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="deleteUser(${u.id}, '${escapeHtml(u.full_name)}')">
+                    <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="event.stopPropagation(); deleteUser(${u.id}, '${escapeHtml(u.full_name)}')">
                         <i data-lucide="trash-2" style="width:15px;height:15px;color:var(--accent-rose);"></i>
-                    </button>` : ''}
+                    </button>
+                    ` : ''}
                 </div>
             </td>
         </tr>
@@ -186,10 +189,10 @@ async function saveUser(e) {
     
     try {
         if (id) {
-            await apiRequest(`/api/users.php?id=${id}`, { method: 'PUT', body: JSON.stringify(data) });
+            await apiRequest(`/api/users?id=${id}`, { method: 'PUT', body: JSON.stringify(data) });
         } else {
             data.password = password;
-            await apiRequest('/api/users.php', { method: 'POST', body: JSON.stringify(data) });
+            await apiRequest('/api/users', { method: 'POST', body: JSON.stringify(data) });
         }
         showToast(`User ${id ? 'updated' : 'created'} successfully`);
         closeModal('userModal');
@@ -202,7 +205,7 @@ async function saveUser(e) {
 async function toggleUserStatus(id, currentStatus) {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     try {
-        await apiRequest(`/api/users.php?id=${id}`, { 
+        await apiRequest(`/api/users?id=${id}`, { 
             method: 'PUT', 
             body: JSON.stringify({ status: newStatus }) 
         });
@@ -216,7 +219,7 @@ async function toggleUserStatus(id, currentStatus) {
 async function deleteUser(id, name) {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try {
-        await apiRequest(`/api/users.php?id=${id}`, { method: 'DELETE' });
+        await apiRequest(`/api/users?id=${id}`, { method: 'DELETE' });
         showToast('User deleted');
         loadUsers();
     } catch (e) {

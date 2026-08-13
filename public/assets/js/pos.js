@@ -4,6 +4,7 @@
 let cart = [];
 let posProducts = [];
 let posCategory = '';
+let selectedDealer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadPOSProducts();
@@ -11,6 +12,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('posSearch');
     if (searchInput) {
         searchInput.addEventListener('input', debounce(() => loadPOSProducts(), 300));
+    }
+
+    // Dealer search in checkout modal
+    const dealerSearch = document.getElementById('dealerSearchInput');
+    if (dealerSearch) {
+        dealerSearch.addEventListener('input', debounce(() => searchDealers(), 300));
+        dealerSearch.addEventListener('focus', () => searchDealers());
+        
+        // Close dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('dealerSelectWrapper')?.contains(e.target)) {
+                document.getElementById('dealerDropdown').style.display = 'none';
+            }
+        });
     }
 });
 
@@ -24,7 +39,7 @@ async function loadPOSProducts() {
     });
     
     try {
-        const data = await apiRequest(`/api/products.php?${params}`);
+        const data = await apiRequest(`/api/products?${params}`);
         posProducts = data.data || [];
         renderPOSProducts();
     } catch (e) {
@@ -184,16 +199,121 @@ function updateCartTotals() {
     
     const checkoutTotal = document.getElementById('checkoutTotal');
     if (checkoutTotal) checkoutTotal.textContent = formatCurrency(total);
+
+    // Update credit warning if applicable
+    onPaymentStatusChange();
+}
+
+// ── Dealer Search/Select ──
+async function searchDealers() {
+    const q = document.getElementById('dealerSearchInput')?.value || '';
+    const dropdown = document.getElementById('dealerDropdown');
+
+    try {
+        const data = await apiRequest(`/api/dealers?action=search&q=${encodeURIComponent(q)}`);
+        const dealers = data.data || [];
+
+        if (dealers.length === 0) {
+            dropdown.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.85rem;">No dealers found</div>';
+        } else {
+            dropdown.innerHTML = dealers.map(d => {
+                const available = parseFloat(d.credit_limit) - parseFloat(d.credit_balance);
+                return `<div class="dealer-option" onclick="selectDealer(${d.id}, '${escapeHtml(d.name).replace(/'/g, "\\'")}', '${d.dealer_code}', ${d.credit_limit}, ${d.credit_balance})" 
+                         style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);transition:background 0.15s;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-weight:500;">${escapeHtml(d.name)}</div>
+                            <div style="font-size:0.78rem;color:var(--text-muted);">${d.dealer_code} · ${escapeHtml(d.contact_person || '')}</div>
+                        </div>
+                        <div style="text-align:right;font-size:0.82rem;">
+                            <div style="color:var(--success-color);">Avail: ${formatCurrency(available)}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        dropdown.style.display = 'block';
+    } catch (e) {
+        dropdown.innerHTML = '<div style="padding:12px;color:var(--error-color);">Error loading dealers</div>';
+        dropdown.style.display = 'block';
+    }
+}
+
+function selectDealer(id, name, code, creditLimit, creditBalance) {
+    selectedDealer = { id, name, code, credit_limit: creditLimit, credit_balance: creditBalance };
+    document.getElementById('selectedDealerId').value = id;
+    document.getElementById('dealerSearchInput').value = `${name} (${code})`;
+    document.getElementById('dealerDropdown').style.display = 'none';
+
+    const available = creditLimit - creditBalance;
+    document.getElementById('selectedDealerInfo').style.display = 'block';
+    document.getElementById('selectedDealerInfo').innerHTML = `
+        <div style="display:flex;justify-content:space-between;font-size:0.85rem;">
+            <span style="color:var(--text-muted);">Credit Limit: <strong>${formatCurrency(creditLimit)}</strong></span>
+            <span style="color:var(--text-muted);">Outstanding: <strong style="color:var(--warning-color);">${formatCurrency(creditBalance)}</strong></span>
+            <span style="color:var(--success-color);">Available: <strong>${formatCurrency(available)}</strong></span>
+        </div>
+    `;
+
+    onPaymentStatusChange();
+}
+
+function onPaymentStatusChange() {
+    const paymentStatus = document.getElementById('paymentStatus')?.value || 'paid';
+    const warning = document.getElementById('creditWarning');
+    if (!warning) return;
+
+    if (paymentStatus === 'credit' && selectedDealer) {
+        const available = selectedDealer.credit_limit - selectedDealer.credit_balance;
+        const subtotal = cart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+        const discount = parseFloat(document.getElementById('orderDiscount')?.value || 0);
+        const taxable = subtotal - discount;
+        const tax = taxable * (window.TAX_RATE / 100);
+        const total = taxable + tax;
+
+        if (total > available) {
+            warning.style.display = 'block';
+            warning.innerHTML = `<i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Sale total (${formatCurrency(total)}) exceeds available credit (${formatCurrency(available)}). This sale will be <strong>blocked</strong>.`;
+            lucide.createIcons({ nodes: [warning] });
+        } else {
+            warning.style.display = 'block';
+            warning.style.color = 'var(--success-color)';
+            warning.style.background = 'var(--success-color)15';
+            warning.style.borderColor = 'var(--success-color)33';
+            warning.innerHTML = `<i data-lucide="check-circle" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Credit available: ${formatCurrency(available)}. This sale will be charged to the dealer's account.`;
+            lucide.createIcons({ nodes: [warning] });
+        }
+    } else {
+        warning.style.display = 'none';
+    }
 }
 
 function openCheckoutModal() {
     if (cart.length === 0) return;
+
+    // Reset dealer selection
+    selectedDealer = null;
+    document.getElementById('selectedDealerId').value = '';
+    document.getElementById('dealerSearchInput').value = '';
+    document.getElementById('selectedDealerInfo').style.display = 'none';
+    document.getElementById('dealerDropdown').style.display = 'none';
+    document.getElementById('paymentStatus').value = 'paid';
+    document.getElementById('creditWarning').style.display = 'none';
+    document.getElementById('orderDiscount').value = '0';
+    document.getElementById('checkoutNotes').value = '';
+
     updateCartTotals();
     openModal('checkoutModal');
 }
 
 async function processPayment() {
     if (cart.length === 0) return;
+
+    const dealerId = document.getElementById('selectedDealerId').value;
+    if (!dealerId) {
+        showToast('Please select a registered dealer', 'error');
+        return;
+    }
     
     const btn = document.getElementById('processPaymentBtn');
     btn.disabled = true;
@@ -206,18 +326,20 @@ async function processPayment() {
             unit_price: item.unit_price,
             discount: item.discount,
         })),
-        customer_name: document.getElementById('customerName').value || 'Walk-in Customer',
+        dealer_id: parseInt(dealerId),
         discount: parseFloat(document.getElementById('orderDiscount').value || 0),
         payment_method: document.getElementById('paymentMethod').value,
+        payment_status: document.getElementById('paymentStatus').value,
         notes: document.getElementById('checkoutNotes').value,
     });
     
     try {
-        const result = await apiRequest('/api/sales.php', { method: 'POST', body });
+        const result = await apiRequest('/api/sales', { method: 'POST', body });
         
         closeModal('checkoutModal');
         showReceipt(result);
         cart = [];
+        selectedDealer = null;
         renderCart();
         loadPOSProducts(); // Refresh stock counts
         showToast(`Sale completed! Invoice: ${result.invoice_no}`, 'success');
@@ -232,7 +354,7 @@ async function processPayment() {
 
 async function showReceipt(saleResult) {
     try {
-        const sale = await apiRequest(`/api/sales.php?action=detail&id=${saleResult.sale_id}`);
+        const sale = await apiRequest(`/api/sales?action=detail&id=${saleResult.sale_id}`);
         
         const itemsHtml = (sale.items || []).map(item => `
             <tr>
@@ -242,15 +364,17 @@ async function showReceipt(saleResult) {
                 <td style="text-align:right;">$${parseFloat(item.total).toFixed(2)}</td>
             </tr>
         `).join('');
+
+        const paymentStatusLabel = sale.payment_status === 'credit' ? '<span style="color:var(--warning-color);font-weight:600;">CREDIT</span>' : 'PAID';
         
         document.getElementById('receiptContent').innerHTML = `
             <div class="receipt" id="receiptPrint">
                 <div class="receipt-header">
-                    <h3>InventoryPro</h3>
+                    <h3>${window.APP_NAME || 'PCIMS'}</h3>
                     <p>Invoice: ${sale.invoice_no}</p>
                     <p>${new Date(sale.created_at).toLocaleString()}</p>
                 </div>
-                <p><strong>Customer:</strong> ${escapeHtml(sale.customer_name)}</p>
+                <p><strong>Dealer:</strong> ${escapeHtml(sale.dealer_name || 'N/A')} (${escapeHtml(sale.dealer_code || '')})</p>
                 <p><strong>Cashier:</strong> ${escapeHtml(sale.cashier || 'N/A')}</p>
                 <table>
                     <thead>
@@ -272,8 +396,8 @@ async function showReceipt(saleResult) {
                     </div>
                 </div>
                 <div class="receipt-footer">
-                    <p>Payment: ${sale.payment_method.toUpperCase()}</p>
-                    <p>Thank you for your purchase!</p>
+                    <p>Payment: ${sale.payment_method.toUpperCase()} | Status: ${paymentStatusLabel}</p>
+                    <p>Thank you for your business!</p>
                 </div>
             </div>
         `;

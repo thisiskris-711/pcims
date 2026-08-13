@@ -90,7 +90,7 @@ include dirname(__DIR__) . '/layouts/header.php';
     <div class="card">
         <div class="card-header">
             <h3 class="card-title"><?= $isEdit ? 'Edit' : 'New' ?> Product</h3>
-            <a href="<?= APP_URL ?>/products.php" class="btn btn-ghost btn-sm">
+            <a href="<?= APP_URL ?>/products" class="btn btn-ghost btn-sm">
                 <i data-lucide="arrow-left" style="width:16px;height:16px;"></i> Back
             </a>
         </div>
@@ -199,7 +199,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <i data-lucide="<?= $isEdit ? 'save' : 'plus' ?>" style="width:18px;height:18px;"></i>
                         <?= $isEdit ? 'Save Changes' : 'Create Product' ?>
                     </button>
-                    <a href="<?= APP_URL ?>/products.php" class="btn btn-secondary">Cancel</a>
+                    <a href="<?= APP_URL ?>/products" class="btn btn-secondary">Cancel</a>
                 </div>
             </form>
         </div>

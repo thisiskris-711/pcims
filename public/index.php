@@ -21,6 +21,7 @@ $route = '/' . trim($route, '/');
 // Extremely simple router
 switch ($route) {
     case '/':
+    case '/index.php':
     case '/dashboard':
         require dirname(__DIR__) . '/views/pages/dashboard.php';
         break;
@@ -69,6 +70,10 @@ switch ($route) {
         require dirname(__DIR__) . '/views/pages/profile.php';
         break;
         
+    case '/dealers':
+        require dirname(__DIR__) . '/views/pages/dealers.php';
+        break;
+        
     // --- API ROUTES ---
     case '/api/products':
         require dirname(__DIR__) . '/src/Api/products.php';
@@ -100,6 +105,14 @@ switch ($route) {
         
     case '/api/export_pdf':
         require dirname(__DIR__) . '/src/Api/export_pdf.php';
+        break;
+
+    case '/api/dealers':
+        require dirname(__DIR__) . '/src/Api/dealers.php';
+        break;
+        
+    case '/api/credits':
+        require dirname(__DIR__) . '/src/Api/credits.php';
         break;
 
     default:

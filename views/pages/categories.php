@@ -4,21 +4,27 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
 
 $pageTitle = 'Categories';
 $currentPage = 'categories';
 include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
+<script>
+window.CAN_EDIT = <?= hasRole(ROLE_ADMIN, ROLE_MANAGER) ? 'true' : 'false' ?>;
+</script>
+
 <div class="toolbar">
     <div class="toolbar-left">
         <h2 style="font-size:1rem;font-weight:600;">Manage product categories</h2>
     </div>
     <div class="toolbar-right">
+        <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
         <button class="btn btn-primary" onclick="openCategoryModal()">
             <i data-lucide="plus" style="width:18px;height:18px;"></i> Add Category
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -33,7 +39,9 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <th>Description</th>
                         <th>Products</th>
                         <th>Created</th>
+                        <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
                         <th style="width:100px;">Actions</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody id="categoriesBody">
@@ -87,7 +95,7 @@ document.getElementById('catColor').addEventListener('input', (e) => {
 
 async function loadCategories() {
     try {
-        const data = await apiRequest('/api/categories.php');
+        const data = await apiRequest('/api/categories');
         renderCategories(data.data || []);
     } catch (e) {
         showToast('Failed to load categories', 'error');
@@ -104,22 +112,24 @@ function renderCategories(cats) {
     }
     
     tbody.innerHTML = cats.map(c => `
-        <tr>
+        <tr ${window.CAN_EDIT ? `class="clickable-row" onclick='editCategory(${JSON.stringify(c).replace(/'/g, "&apos;")})'` : ''}>
             <td><span class="color-dot" style="background:${c.color};width:16px;height:16px;"></span></td>
             <td class="font-bold">${escapeHtml(c.name)}</td>
             <td class="text-muted">${c.description ? escapeHtml(c.description) : '—'}</td>
             <td><span class="badge badge-violet">${c.product_count}</span></td>
             <td class="text-muted">${new Date(c.created_at).toLocaleDateString()}</td>
+            ${window.CAN_EDIT ? `
             <td>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='editCategory(${JSON.stringify(c)})'>
+                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='event.stopPropagation(); editCategory(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
                         <i data-lucide="pencil" style="width:15px;height:15px;"></i>
                     </button>
-                    <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="deleteCategory(${c.id}, '${escapeHtml(c.name)}')">
+                    <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="event.stopPropagation(); deleteCategory(${c.id}, '${escapeHtml(c.name)}')">
                         <i data-lucide="trash-2" style="width:15px;height:15px;color:var(--accent-rose);"></i>
                     </button>
                 </div>
             </td>
+            ` : ''}
         </tr>
     `).join('');
     
@@ -151,9 +161,9 @@ async function saveCategory(e) {
     
     try {
         if (id) {
-            await apiRequest(`/api/categories.php?id=${id}`, { method: 'PUT', body });
+            await apiRequest(`/api/categories?id=${id}`, { method: 'PUT', body });
         } else {
-            await apiRequest('/api/categories.php', { method: 'POST', body });
+            await apiRequest('/api/categories', { method: 'POST', body });
         }
         showToast(`Category ${id ? 'updated' : 'created'} successfully`);
         closeModal('categoryModal');
@@ -166,7 +176,7 @@ async function saveCategory(e) {
 async function deleteCategory(id, name) {
     if (!confirm(`Delete category "${name}"? Products will become uncategorized.`)) return;
     try {
-        await apiRequest(`/api/categories.php?id=${id}`, { method: 'DELETE' });
+        await apiRequest(`/api/categories?id=${id}`, { method: 'DELETE' });
         showToast('Category deleted');
         loadCategories();
     } catch (e) {

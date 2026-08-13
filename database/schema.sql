@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` VARCHAR(100) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `full_name` VARCHAR(100) NOT NULL,
-  `role` ENUM('admin','manager','staff') NOT NULL DEFAULT 'staff',
+  `role` ENUM('admin','manager','cashier','stocker','auditor') NOT NULL DEFAULT 'cashier',
   `avatar` VARCHAR(255) DEFAULT NULL,
   `status` ENUM('active','inactive') NOT NULL DEFAULT 'active',
   `last_login` DATETIME DEFAULT NULL,

@@ -48,7 +48,7 @@ async function loadProducts() {
     }
     
     try {
-        const data = await apiRequest(`/api/products.php?${params}`);
+        const data = await apiRequest(`/api/products?${params}`);
         renderProducts(data);
     } catch (e) {
         showToast('Failed to load products', 'error');
@@ -81,8 +81,8 @@ function renderProducts(response) {
             : `<i data-lucide="image" style="width:18px;height:18px;"></i>`;
         
         return `
-        <tr>
-            <td><input type="checkbox" class="product-checkbox" value="${p.id}"></td>
+        <tr ${window.CAN_EDIT ? `class="clickable-row" onclick="if(!event.target.closest('.product-checkbox') && !event.target.closest('.btn')) window.location.href='${APP_URL}/product_form?id=${p.id}'"` : ''}>
+            <td><input type="checkbox" class="product-checkbox" value="${p.id}" onclick="event.stopPropagation()"></td>
             <td>
                 <div class="d-flex align-center gap-1">
                     <div class="product-thumb">${imgHtml}</div>
@@ -107,9 +107,10 @@ function renderProducts(response) {
                 </div>
             </td>
             <td><span class="status status-${p.status}">${p.status}</span></td>
+            ${window.CAN_EDIT ? `
             <td>
                 <div class="d-flex gap-1">
-                    <a href="${APP_URL}/product_form.php?id=${p.id}" class="btn btn-ghost btn-icon sm" title="Edit">
+                    <a href="${APP_URL}/product_form?id=${p.id}" class="btn btn-ghost btn-icon sm" title="Edit">
                         <i data-lucide="pencil" style="width:15px;height:15px;"></i>
                     </a>
                     <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="promptDelete(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
@@ -117,6 +118,7 @@ function renderProducts(response) {
                     </button>
                 </div>
             </td>
+            ` : ''}
         </tr>`;
     }).join('');
     
@@ -159,7 +161,7 @@ async function confirmDelete() {
     if (!deleteProductId) return;
     
     try {
-        await apiRequest(`/api/products.php?id=${deleteProductId}`, { method: 'DELETE' });
+        await apiRequest(`/api/products?id=${deleteProductId}`, { method: 'DELETE' });
         showToast('Product deleted successfully', 'success');
         closeModal('deleteModal');
         loadProducts();

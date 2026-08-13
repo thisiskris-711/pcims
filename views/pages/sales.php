@@ -4,6 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
+requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, ROLE_AUDITOR);
 
 $pageTitle = 'Sales History';
 $currentPage = 'sales';
@@ -30,7 +31,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <thead>
                     <tr>
                         <th>Invoice</th>
-                        <th>Customer</th>
+                        <th>Dealer</th>
                         <th>Items</th>
                         <th>Subtotal</th>
                         <th>Discount</th>
@@ -83,7 +84,7 @@ async function loadSales() {
     });
     
     try {
-        const data = await apiRequest(`/api/sales.php?${params}`);
+        const data = await apiRequest(`/api/sales?${params}`);
         renderSales(data);
     } catch (e) {
         showToast('Failed to load sales', 'error');
@@ -104,9 +105,9 @@ function renderSales(response) {
     const paymentBadge = { cash: 'badge-emerald', card: 'badge-blue', transfer: 'badge-violet', other: 'badge-gray' };
     
     tbody.innerHTML = sales.map(s => `
-        <tr>
+        <tr class="clickable-row" onclick="viewSaleDetail(${s.id})">
             <td><code style="font-size:0.8rem;color:var(--accent-cyan);">${escapeHtml(s.invoice_no)}</code></td>
-            <td>${escapeHtml(s.customer_name)}</td>
+            <td>${escapeHtml(s.dealer_name || '—')}${s.dealer_code ? ` <code style="font-size:0.72rem;color:var(--text-muted);">${s.dealer_code}</code>` : ''}</td>
             <td><span class="badge badge-violet">${s.item_count}</span></td>
             <td>${formatCurrency(s.subtotal)}</td>
             <td class="text-muted">${parseFloat(s.discount) > 0 ? '-' + formatCurrency(s.discount) : '—'}</td>
@@ -116,7 +117,7 @@ function renderSales(response) {
             <td><span class="status status-${s.payment_status}">${s.payment_status}</span></td>
             <td class="text-muted">${new Date(s.created_at).toLocaleDateString()}</td>
             <td>
-                <button class="btn btn-ghost btn-icon sm" title="View Details" onclick="viewSaleDetail(${s.id})">
+                <button class="btn btn-ghost btn-icon sm" title="View Details" onclick="event.stopPropagation(); viewSaleDetail(${s.id})">
                     <i data-lucide="eye" style="width:15px;height:15px;"></i>
                 </button>
             </td>
@@ -141,7 +142,7 @@ function salesGoPage(p) { salesPage = p; loadSales(); }
 
 async function viewSaleDetail(id) {
     try {
-        const sale = await apiRequest(`/api/sales.php?action=detail&id=${id}`);
+        const sale = await apiRequest(`/api/sales?action=detail&id=${id}`);
         
         const itemsHtml = (sale.items || []).map(item => `
             <tr>
@@ -158,7 +159,7 @@ async function viewSaleDetail(id) {
             <div class="grid-2 mb-2">
                 <div>
                     <p><strong>Invoice:</strong> ${sale.invoice_no}</p>
-                    <p><strong>Customer:</strong> ${escapeHtml(sale.customer_name)}</p>
+                    <p><strong>Dealer:</strong> ${escapeHtml(sale.dealer_name || 'N/A')} ${sale.dealer_code ? `<code style="font-size:0.78rem;">${sale.dealer_code}</code>` : ''}</p>
                     <p><strong>Cashier:</strong> ${escapeHtml(sale.cashier || 'N/A')}</p>
                 </div>
                 <div>

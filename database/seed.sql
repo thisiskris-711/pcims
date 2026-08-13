@@ -10,7 +10,7 @@ USE `inventory_ms`;
 INSERT INTO `users` (`username`, `email`, `password_hash`, `full_name`, `role`, `status`) VALUES
 ('admin', 'admin@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'System Administrator', 'admin', 'active'),
 ('manager', 'manager@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'Store Manager', 'manager', 'active'),
-('staff', 'staff@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'Store Staff', 'staff', 'active');
+('cashier', 'cashier@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'Store Cashier', 'cashier', 'active');
 
 -- NOTE: The hash above is a bcrypt hash of "password". We'll generate proper hashes via PHP on first run.
 -- For seeding, we'll use a known hash.
@@ -68,15 +68,26 @@ INSERT INTO `stock_transactions` (`product_id`, `type`, `quantity`, `balance_aft
 (9, 'out', 100, 400, 'SO-2026-004', 'Weekly sales', 1, DATE_SUB(NOW(), INTERVAL 5 DAY));
 
 -- -----------------------------------------------------
--- Sample Sales
+-- Sample Dealers
 -- -----------------------------------------------------
-INSERT INTO `sales` (`invoice_no`, `customer_name`, `subtotal`, `discount`, `tax`, `total`, `payment_method`, `payment_status`, `created_by`, `created_at`) VALUES
-('INV-2026-0001', 'John Smith', 179.97, 0.00, 21.60, 201.57, 'card', 'paid', 1, DATE_SUB(NOW(), INTERVAL 15 DAY)),
-('INV-2026-0002', 'Walk-in Customer', 89.99, 5.00, 10.20, 95.19, 'cash', 'paid', 2, DATE_SUB(NOW(), INTERVAL 12 DAY)),
-('INV-2026-0003', 'Sarah Johnson', 149.97, 10.00, 16.80, 156.77, 'transfer', 'paid', 1, DATE_SUB(NOW(), INTERVAL 10 DAY)),
-('INV-2026-0004', 'Walk-in Customer', 49.99, 0.00, 6.00, 55.99, 'cash', 'paid', 2, DATE_SUB(NOW(), INTERVAL 7 DAY)),
-('INV-2026-0005', 'Mike Davis', 259.96, 15.00, 29.40, 274.36, 'card', 'paid', 1, DATE_SUB(NOW(), INTERVAL 3 DAY)),
-('INV-2026-0006', 'Walk-in Customer', 34.99, 0.00, 4.20, 39.19, 'cash', 'paid', 2, DATE_SUB(NOW(), INTERVAL 1 DAY));
+INSERT INTO `dealers` (`dealer_code`, `name`, `contact_person`, `email`, `phone`, `address`, `credit_limit`, `credit_balance`, `status`, `created_by`) VALUES
+('DLR-0001', 'Metro Electronics Hub', 'John Smith', 'john@metroelectronics.com', '09171234567', '123 Rizal Ave, Makati City', 50000.00, 274.36, 'active', 1),
+('DLR-0002', 'FreshMart Trading', 'Sarah Johnson', 'sarah@freshmart.com', '09181234567', '456 EDSA, Quezon City', 30000.00, 0.00, 'active', 1),
+('DLR-0003', 'SportZone Distributors', 'Mike Davis', 'mike@sportzone.com', '09191234567', '789 Taft Ave, Manila', 25000.00, 0.00, 'active', 1),
+('DLR-0004', 'BookWorm Supplies', 'Anna Cruz', 'anna@bookworm.com', '09201234567', '321 España Blvd, Sampaloc', 15000.00, 0.00, 'active', 1),
+('DLR-0005', 'AutoParts Manila', 'Carlos Reyes', 'carlos@autoparts.com', '09211234567', '654 Marcos Highway, Pasig', 40000.00, 0.00, 'active', 1),
+('DLR-0006', 'GreenLife Organics', 'Maria Santos', 'maria@greenlife.com', '09221234567', '987 Ortigas Ave, Mandaluyong', 20000.00, 0.00, 'suspended', 1);
+
+-- -----------------------------------------------------
+-- Sample Sales (linked to dealers)
+-- -----------------------------------------------------
+INSERT INTO `sales` (`invoice_no`, `dealer_id`, `subtotal`, `discount`, `tax`, `total`, `payment_method`, `payment_status`, `created_by`, `created_at`) VALUES
+('INV-2026-0001', 1, 179.97, 0.00, 21.60, 201.57, 'card', 'paid', 1, DATE_SUB(NOW(), INTERVAL 15 DAY)),
+('INV-2026-0002', 2, 89.99, 5.00, 10.20, 95.19, 'cash', 'paid', 3, DATE_SUB(NOW(), INTERVAL 12 DAY)),
+('INV-2026-0003', 3, 149.97, 10.00, 16.80, 156.77, 'transfer', 'paid', 1, DATE_SUB(NOW(), INTERVAL 10 DAY)),
+('INV-2026-0004', 4, 49.99, 0.00, 6.00, 55.99, 'cash', 'paid', 3, DATE_SUB(NOW(), INTERVAL 7 DAY)),
+('INV-2026-0005', 1, 259.96, 15.00, 29.40, 274.36, 'card', 'credit', 1, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+('INV-2026-0006', 2, 34.99, 0.00, 4.20, 39.19, 'cash', 'paid', 3, DATE_SUB(NOW(), INTERVAL 1 DAY));
 
 INSERT INTO `sale_items` (`sale_id`, `product_id`, `product_name`, `quantity`, `unit_price`, `discount`, `total`) VALUES
 (1, 1, 'Wireless Bluetooth Headphones', 2, 89.99, 0.00, 179.98),
@@ -88,6 +99,12 @@ INSERT INTO `sale_items` (`sale_id`, `product_id`, `product_name`, `quantity`, `
 (5, 14, 'Stainless Steel Water Bottle', 1, 24.99, 5.00, 19.99),
 (6, 10, 'Green Tea Collection Box', 1, 14.99, 0.00, 14.99),
 (6, 15, 'Leather Notebook A5', 1, 16.99, 0.00, 16.99);
+
+-- -----------------------------------------------------
+-- Sample Credit Transactions (for dealer DLR-0001 credit sale)
+-- -----------------------------------------------------
+INSERT INTO `credit_transactions` (`dealer_id`, `sale_id`, `type`, `amount`, `balance_after`, `reference_no`, `notes`, `created_by`, `created_at`) VALUES
+(1, 5, 'charge', 274.36, 274.36, 'CR-2026-0001', 'Credit sale: INV-2026-0005', 1, DATE_SUB(NOW(), INTERVAL 3 DAY));
 
 -- -----------------------------------------------------
 -- Default Settings
