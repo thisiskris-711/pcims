@@ -1,0 +1,13 @@
+# Environment configuration
+.env
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# User uploaded files
+uploads/products/*
+!uploads/products/.gitkeep
