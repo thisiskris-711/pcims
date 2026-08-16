@@ -43,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => flashAlert.remove(), 300);
         }, 4000);
     }
+    
+    // Initialize notification system
+    initNotifications();
 });
 
 // ── Toast Notifications ──
@@ -170,7 +173,7 @@ function escapeHtml(text) {
 }
 
 function formatCurrency(amount) {
-    return '$' + parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return '₱' + parseFloat(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function debounce(func, wait = 300) {
@@ -232,4 +235,142 @@ function initSelectAll(checkboxId, itemClass) {
             cb.checked = selectAll.checked;
         });
     });
+}
+
+// ── Notifications System ──
+function initNotifications() {
+    const btn = document.getElementById('notificationBtn');
+    const dropdown = document.getElementById('notificationDropdown');
+    const wrapper = document.getElementById('notificationDropdownWrapper');
+    const badge = document.getElementById('notificationBadge');
+    const markAllReadBtn = document.getElementById('markAllReadBtn');
+    
+    if (!btn || !dropdown) return;
+    
+    // Toggle dropdown
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+        if (dropdown.classList.contains('active')) {
+            fetchNotifications();
+        }
+    });
+    
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+        if (wrapper && !wrapper.contains(e.target)) {
+            dropdown.classList.remove('active');
+        }
+    });
+    
+    // Mark all as read
+    if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                await apiRequest('/api/notifications', {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'mark_read' })
+                });
+                badge.style.display = 'none';
+                fetchNotifications();
+            } catch (err) {
+                console.error(err);
+            }
+        });
+    }
+    
+    // Initial fetch and polling
+    fetchNotifications();
+    setInterval(fetchNotifications, 60000); // Poll every minute
+}
+
+async function fetchNotifications() {
+    const list = document.getElementById('notificationList');
+    const badge = document.getElementById('notificationBadge');
+    
+    if (!list) return;
+    
+    try {
+        const data = await apiRequest('/api/notifications?action=list');
+        
+        // Update badge
+        if (data.unread_count > 0) {
+            badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+        
+        // Render list
+        if (!data.notifications || data.notifications.length === 0) {
+            list.innerHTML = `<div class="p-3 text-center text-muted" style="padding:20px;">No notifications</div>`;
+            return;
+        }
+        
+        list.innerHTML = data.notifications.map(n => {
+            const isUnread = n.is_read == 0 ? 'unread' : '';
+            const iconMap = {
+                info: 'info',
+                warning: 'alert-triangle',
+                success: 'check-circle',
+                error: 'alert-circle'
+            };
+            const iconName = iconMap[n.type] || 'info';
+            
+            return `
+                <div class="notification-item ${isUnread}" data-id="${n.id}" data-link="${n.link || ''}">
+                    <div class="notification-icon ${n.type}">
+                        <i data-lucide="${iconName}" style="width:16px;height:16px;"></i>
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title">${escapeHtml(n.title)}</div>
+                        <div class="notification-message">${escapeHtml(n.message)}</div>
+                        <div class="notification-time">${timeAgoFormat(n.created_at)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        lucide.createIcons({ nodes: [list] });
+        
+        // Add click listeners to items
+        list.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const id = item.dataset.id;
+                const link = item.dataset.link;
+                
+                if (item.classList.contains('unread')) {
+                    try {
+                        await apiRequest('/api/notifications', {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'mark_read', id: id })
+                        });
+                        fetchNotifications();
+                    } catch (e) { console.error(e); }
+                }
+                
+                if (link && link !== 'null') {
+                    window.location.href = window.APP_URL + link;
+                }
+            });
+        });
+        
+    } catch (err) {
+        console.error('Failed to fetch notifications', err);
+    }
+}
+
+function timeAgoFormat(datetime) {
+    const date = new Date(datetime);
+    const now = new Date();
+    // Adjusting for simple client side relative time (approximation)
+    const diffSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffSeconds < 60) return 'just now';
+    if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + 'm ago';
+    if (diffSeconds < 86400) return Math.floor(diffSeconds / 3600) + 'h ago';
+    if (diffSeconds < 604800) return Math.floor(diffSeconds / 86400) + 'd ago';
+    
+    return date.toLocaleDateString();
 }

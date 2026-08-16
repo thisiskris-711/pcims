@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $lowStockThreshold = (int)($_POST['low_stock_threshold'] ?? 10);
     $barcode = trim($_POST['barcode'] ?? '');
     $status = $_POST['status'] ?? 'active';
+    $expiryDate = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] : null;
     
     if (empty($name)) {
         flashMessage('Product name is required.', 'error');
@@ -45,9 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($isEdit) {
             $stmt = $db->prepare("
                 UPDATE products SET name=?, description=?, category_id=?, cost_price=?, selling_price=?, 
-                low_stock_threshold=?, image=?, barcode=?, status=?, updated_at=NOW() WHERE id=?
+                low_stock_threshold=?, image=?, barcode=?, expiry_date=?, status=?, updated_at=NOW() WHERE id=?
             ");
-            $stmt->execute([$name, $description, $categoryId, $costPrice, $sellingPrice, $lowStockThreshold, $image, $barcode, $status, $product['id']]);
+            $stmt->execute([$name, $description, $categoryId, $costPrice, $sellingPrice, $lowStockThreshold, $image, $barcode, $expiryDate, $status, $product['id']]);
             flashMessage('Product updated successfully!');
         } else {
             $prefix = 'GN';
@@ -60,10 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sku = generateSKU($prefix);
             
             $stmt = $db->prepare("
-                INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, status, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, expiry_date, status, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $quantity, $lowStockThreshold, $image, $barcode, $status, getCurrentUserId()]);
+            $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $quantity, $lowStockThreshold, $image, $barcode, $expiryDate, $status, getCurrentUserId()]);
             
             $newId = $db->lastInsertId();
             
@@ -128,12 +129,12 @@ include dirname(__DIR__) . '/layouts/header.php';
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label" for="cost_price">Cost Price ($)</label>
+                        <label class="form-label" for="cost_price">Cost Price (₱)</label>
                         <input type="number" class="form-control" id="cost_price" name="cost_price" step="0.01" min="0"
                                value="<?= $product['cost_price'] ?? '0.00' ?>" placeholder="0.00">
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="selling_price">Selling Price ($)</label>
+                        <label class="form-label" for="selling_price">Selling Price (₱)</label>
                         <input type="number" class="form-control" id="selling_price" name="selling_price" step="0.01" min="0"
                                value="<?= $product['selling_price'] ?? '0.00' ?>" placeholder="0.00">
                     </div>
@@ -160,6 +161,15 @@ include dirname(__DIR__) . '/layouts/header.php';
                     <div class="form-hint">Current stock: <strong><?= $product['quantity'] ?></strong> — Adjust stock via Stock Movement page.</div>
                 </div>
                 <?php endif; ?>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="expiry_date">Expiry Date</label>
+                        <input type="date" class="form-control" id="expiry_date" name="expiry_date"
+                               value="<?= sanitize($product['expiry_date'] ?? '') ?>">
+                        <div class="form-hint">Leave blank if not applicable.</div>
+                    </div>
+                </div>
                 
                 <div class="form-row">
                     <div class="form-group">

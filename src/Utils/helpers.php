@@ -13,7 +13,7 @@ function sanitize(string $input): string {
 /**
  * Format number as currency
  */
-function formatCurrency(float $amount, string $symbol = '$'): string {
+function formatCurrency(float $amount, string $symbol = '₱'): string {
     return $symbol . number_format($amount, 2);
 }
 
@@ -234,4 +234,18 @@ function generateCSRFToken(): string {
 
 function validateCSRFToken(?string $token): bool {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token ?? '');
+}
+
+/**
+ * Create a new notification
+ */
+function createNotification(?int $userId, string $title, string $message, string $type = 'info', ?string $link = null): bool {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO notifications (user_id, type, title, message, link, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        return $stmt->execute([$userId, $type, $title, $message, $link]);
+    } catch (Exception $e) {
+        error_log("Failed to create notification: " . $e->getMessage());
+        return false;
+    }
 }

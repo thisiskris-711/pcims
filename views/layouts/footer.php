@@ -8,10 +8,10 @@
     <div class="modal-overlay" id="modalOverlay"></div>
     
     <!-- App Scripts -->
-    <script src="<?= APP_URL ?>/assets/js/app.js"></script>
+    <script src="<?= APP_URL ?>/assets/js/app.js?v=<?= filemtime(ROOT_PATH . '/public/assets/js/app.js') ?>"></script>
     <?php if (isset($pageScripts)): ?>
         <?php foreach ($pageScripts as $script): ?>
-        <script src="<?= APP_URL ?>/assets/js/<?= $script ?>"></script>
+        <script src="<?= APP_URL ?>/assets/js/<?= $script ?>?v=<?= filemtime(ROOT_PATH . '/public/assets/js/' . $script) ?>"></script>
         <?php endforeach; ?>
     <?php endif; ?>
     

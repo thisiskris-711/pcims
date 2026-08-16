@@ -71,7 +71,7 @@ function renderSalesChart(data) {
                     cornerRadius: 8,
                     displayColors: false,
                     callbacks: {
-                        label: (ctx) => `Revenue: $${ctx.parsed.y.toFixed(2)}`,
+                        label: (ctx) => `Revenue: ₱${ctx.parsed.y.toFixed(2)}`,
                     }
                 }
             },
@@ -86,7 +86,7 @@ function renderSalesChart(data) {
                     ticks: {
                         color: '#64748b',
                         font: { size: 11 },
-                        callback: (v) => '$' + v.toLocaleString(),
+                        callback: (v) => '₱' + v.toLocaleString(),
                     },
                     border: { display: false },
                     beginAtZero: true,

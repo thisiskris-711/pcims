@@ -62,6 +62,10 @@ switch ($route) {
         require dirname(__DIR__) . '/views/pages/reports.php';
         break;
         
+    case '/notifications':
+        require dirname(__DIR__) . '/views/pages/notifications.php';
+        break;
+        
     case '/users':
         require dirname(__DIR__) . '/views/pages/users.php';
         break;
@@ -72,6 +76,18 @@ switch ($route) {
         
     case '/dealers':
         require dirname(__DIR__) . '/views/pages/dealers.php';
+        break;
+        
+    case '/suppliers':
+        require dirname(__DIR__) . '/views/pages/suppliers.php';
+        break;
+        
+    case '/purchase-orders':
+        require dirname(__DIR__) . '/views/pages/purchase_orders.php';
+        break;
+        
+    case '/purchase-order-form':
+        require dirname(__DIR__) . '/views/pages/purchase_order_form.php';
         break;
         
     // --- API ROUTES ---
@@ -111,8 +127,20 @@ switch ($route) {
         require dirname(__DIR__) . '/src/Api/dealers.php';
         break;
         
+    case '/api/suppliers':
+        require dirname(__DIR__) . '/src/Api/suppliers.php';
+        break;
+        
+    case '/api/purchase_orders':
+        require dirname(__DIR__) . '/src/Api/purchase_orders.php';
+        break;
+        
     case '/api/credits':
         require dirname(__DIR__) . '/src/Api/credits.php';
+        break;
+
+    case '/api/notifications':
+        require dirname(__DIR__) . '/src/Api/notifications.php';
         break;
 
     default:

@@ -114,7 +114,7 @@ switch ($method) {
             
             // Validate all items first
             foreach ($items as $item) {
-                $prodStmt = $db->prepare("SELECT id, name, selling_price, quantity FROM products WHERE id = ? AND status = 'active'");
+                $prodStmt = $db->prepare("SELECT id, name, selling_price, quantity, low_stock_threshold FROM products WHERE id = ? AND status = 'active'");
                 $prodStmt->execute([$item['product_id']]);
                 $product = $prodStmt->fetch();
                 
@@ -137,6 +137,7 @@ switch ($method) {
                     'discount' => $itemDiscount,
                     'total' => $itemTotal,
                     'current_stock' => $product['quantity'],
+                    'low_stock_threshold' => $product['low_stock_threshold'],
                 ];
             }
             
@@ -175,6 +176,17 @@ switch ($method) {
                 $ref = generateReferenceNo('out');
                 $db->prepare("INSERT INTO stock_transactions (product_id, type, quantity, balance_after, reference_no, notes, created_by) VALUES (?, 'out', ?, ?, ?, ?, ?)")
                     ->execute([$vi['product_id'], $vi['quantity'], $newStock, $ref, "POS Sale: $invoiceNo", getCurrentUserId()]);
+
+                // Check for low stock alert
+                if ($newStock <= (int)$vi['low_stock_threshold'] && $vi['current_stock'] > (int)$vi['low_stock_threshold']) {
+                    createNotification(
+                        null, // global alert
+                        "Low Stock Alert",
+                        "Product '{$vi['product_name']}' has fallen below its low stock threshold after a sale. Current stock: $newStock",
+                        "warning",
+                        "/products?filter=low_stock"
+                    );
+                }
             }
             
             // If credit sale, charge the dealer's account

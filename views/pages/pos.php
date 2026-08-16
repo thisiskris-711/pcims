@@ -128,7 +128,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label">Order Discount ($)</label>
+                <label class="form-label">Order Discount (₱)</label>
                 <input type="number" class="form-control" id="orderDiscount" value="0" min="0" step="0.01" onchange="updateCartTotals()">
             </div>
         </div>

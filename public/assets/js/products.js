@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Filters
-    ['categoryFilter', 'statusFilter'].forEach(id => {
+    ['categoryFilter', 'statusFilter', 'expiryFilter'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => { currentPage = 1; loadProducts(); });
     });
@@ -36,6 +36,7 @@ async function loadProducts() {
     const search = document.getElementById('productSearch')?.value || '';
     const category = document.getElementById('categoryFilter')?.value || '';
     const status = document.getElementById('statusFilter')?.value || '';
+    const expiryFilter = document.getElementById('expiryFilter')?.value || '';
     
     const params = new URLSearchParams({
         search, category, status, page: currentPage,
@@ -45,6 +46,8 @@ async function loadProducts() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('filter') === 'low_stock') {
         params.set('filter', 'low_stock');
+    } else if (expiryFilter) {
+        params.set('filter', expiryFilter);
     }
     
     try {
@@ -61,7 +64,7 @@ function renderProducts(response) {
     
     if (products.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="9">
+            <tr><td colspan="10">
                 <div class="empty-state">
                     <i data-lucide="package-open" style="width:48px;height:48px;"></i>
                     <h3>No Products Found</h3>
@@ -79,6 +82,22 @@ function renderProducts(response) {
         const imgHtml = p.image 
             ? `<img src="${APP_URL}/uploads/products/${p.image}" alt="">`
             : `<i data-lucide="image" style="width:18px;height:18px;"></i>`;
+            
+        let expiryHtml = '<span class="text-muted">—</span>';
+        if (p.expiry_date) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const expDate = new Date(p.expiry_date);
+            const daysToExpiry = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (daysToExpiry < 0) {
+                expiryHtml = `<div class="text-danger font-bold">Expired</div><div style="font-size:0.75rem">${p.expiry_date}</div>`;
+            } else if (daysToExpiry <= 30) {
+                expiryHtml = `<div class="text-warning font-bold">In ${daysToExpiry}d</div><div style="font-size:0.75rem">${p.expiry_date}</div>`;
+            } else {
+                expiryHtml = `<span>${p.expiry_date}</span>`;
+            }
+        }
         
         return `
         <tr ${window.CAN_EDIT ? `class="clickable-row" onclick="if(!event.target.closest('.product-checkbox') && !event.target.closest('.btn')) window.location.href='${APP_URL}/product_form?id=${p.id}'"` : ''}>
@@ -106,6 +125,7 @@ function renderProducts(response) {
                     </div>
                 </div>
             </td>
+            <td>${expiryHtml}</td>
             <td><span class="status status-${p.status}">${p.status}</span></td>
             ${window.CAN_EDIT ? `
             <td>

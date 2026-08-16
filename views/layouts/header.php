@@ -75,6 +75,16 @@ $flash = getFlashMessage();
                     <i data-lucide="arrow-left-right" style="width:20px;height:20px;"></i>
                     <span>Stock Movement</span>
                 </a>
+                <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR)): ?>
+                <a href="<?= APP_URL ?>/suppliers" class="nav-link <?= $currentPage === 'suppliers' ? 'active' : '' ?>">
+                    <i data-lucide="truck" style="width:20px;height:20px;"></i>
+                    <span>Suppliers</span>
+                </a>
+                <a href="<?= APP_URL ?>/purchase-orders" class="nav-link <?= $currentPage === 'purchase_orders' ? 'active' : '' ?>">
+                    <i data-lucide="file-text" style="width:20px;height:20px;"></i>
+                    <span>Purchase Orders</span>
+                </a>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
@@ -152,6 +162,24 @@ $flash = getFlashMessage();
             </div>
             <div class="topbar-right">
                 <div class="topbar-actions">
+                    <div class="dropdown-wrapper" id="notificationDropdownWrapper">
+                        <button class="topbar-btn position-relative" id="notificationBtn" title="Notifications">
+                            <i data-lucide="bell" style="width:20px;height:20px;"></i>
+                            <span class="notification-badge" id="notificationBadge" style="display:none;">0</span>
+                        </button>
+                        <div class="notification-dropdown" id="notificationDropdown">
+                            <div class="notification-header">
+                                <h3>Notifications</h3>
+                                <button class="btn btn-sm btn-ghost" id="markAllReadBtn">Mark all as read</button>
+                            </div>
+                            <div class="notification-list" id="notificationList">
+                                <!-- Notifications will be loaded here via JS -->
+                            </div>
+                            <div class="notification-footer" style="padding: 10px; text-align: center; border-top: 1px solid var(--border-color); background: var(--bg-card);">
+                                <a href="<?= APP_URL ?>/notifications" style="font-size: 0.85rem; color: var(--accent-violet); text-decoration: none; font-weight: 500;">View all notifications</a>
+                            </div>
+                        </div>
+                    </div>
                     <a href="<?= APP_URL ?>/profile" class="topbar-btn" title="Profile">
                         <i data-lucide="user" style="width:20px;height:20px;"></i>
                     </a>

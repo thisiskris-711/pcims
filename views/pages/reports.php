@@ -25,6 +25,9 @@ include dirname(__DIR__) . '/layouts/header.php';
     <button class="tab-btn" data-tab="lowStockReport" onclick="switchReportTab(this, 'low_stock')">
         <i data-lucide="alert-triangle" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> Low Stock
     </button>
+    <button class="tab-btn" data-tab="forecastReport" onclick="switchReportTab(this, 'forecast')">
+        <i data-lucide="line-chart" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> Predictive Analysis
+    </button>
 </div>
 
 <!-- Filters -->
@@ -72,15 +75,19 @@ function switchReportTab(btn, type) {
     btn.classList.add('active');
     currentReport = type;
     
-    // Show/hide date filters for low_stock
-    document.getElementById('reportFilters').style.display = type === 'low_stock' ? 'none' : '';
+    // Show/hide date filters
+    if (type === 'low_stock' || type === 'forecast') {
+        document.getElementById('reportFilters').style.display = 'none';
+    } else {
+        document.getElementById('reportFilters').style.display = '';
+    }
     
     // Clear
     document.getElementById('reportSummary').style.display = 'none';
     document.getElementById('reportHead').innerHTML = '<tr><th>Click Generate</th></tr>';
     document.getElementById('reportBody').innerHTML = '<tr><td class="text-center text-muted" style="padding:40px;">Click Generate to load this report</td></tr>';
     
-    if (type === 'low_stock') loadReport();
+    if (type === 'low_stock' || type === 'forecast') loadReport();
 }
 
 async function loadReport() {
@@ -217,6 +224,29 @@ function renderReport(data) {
                     <td>${formatCurrency(r.cost_price)}</td>
                     <td>${formatCurrency(r.selling_price)}</td>
                 </tr>`).join('');
+            break;
+            
+        case 'forecast':
+            thead.innerHTML = '<tr><th>SKU</th><th>Product</th><th>Category</th><th>Current Stock</th><th>30-Day Sales</th><th>Avg Daily Sales</th><th>Est. Days Remaining</th><th>Suggested Reorder</th></tr>';
+            tbody.innerHTML = rows.map(r => {
+                let daysClass = '';
+                if (r.days_remaining != 999 && r.days_remaining <= 7) daysClass = 'text-danger font-bold';
+                else if (r.days_remaining != 999 && r.days_remaining <= 14) daysClass = 'text-warning font-bold';
+                else if (r.days_remaining == 999) daysClass = 'text-muted';
+                else daysClass = 'text-success';
+                
+                return `
+                <tr>
+                    <td><code style="color:var(--accent-cyan);">${r.sku}</code></td>
+                    <td class="font-bold">${escapeHtml(r.name)}</td>
+                    <td class="text-muted">${r.category || '—'}</td>
+                    <td class="font-bold">${r.quantity}</td>
+                    <td>${r.recent_sales}</td>
+                    <td>${r.avg_daily_sales}/day</td>
+                    <td class="${daysClass}">${r.days_remaining == 999 ? '999+' : r.days_remaining + ' days'}</td>
+                    <td class="font-bold text-violet">${r.suggested_reorder > 0 ? r.suggested_reorder : '—'}</td>
+                </tr>`;
+            }).join('');
             break;
     }
 }

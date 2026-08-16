@@ -102,7 +102,7 @@ include dirname(__DIR__) . '/layouts/header.php';
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="creditLimit">Credit Limit ($)</label>
+                    <label class="form-label" for="creditLimit">Credit Limit (₱)</label>
                     <input type="number" class="form-control" id="creditLimit" value="0" min="0" step="0.01">
                 </div>
                 <div class="form-group" id="statusGroup" style="display:none;">
@@ -141,7 +141,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         <form id="paymentForm" onsubmit="processPayment(event)">
             <input type="hidden" id="paymentDealerId" value="">
             <div class="form-group">
-                <label class="form-label" for="paymentAmount">Payment Amount ($) *</label>
+                <label class="form-label" for="paymentAmount">Payment Amount (₱) *</label>
                 <input type="number" class="form-control" id="paymentAmount" required min="0.01" step="0.01" placeholder="0.00">
             </div>
             <div class="form-group">

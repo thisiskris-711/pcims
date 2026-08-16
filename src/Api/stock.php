@@ -76,8 +76,8 @@ switch ($method) {
         if (!in_array($type, ['in', 'out', 'adjustment'])) jsonResponse(['error' => 'Invalid transaction type'], 400);
         if ($quantity <= 0) jsonResponse(['error' => 'Quantity must be positive'], 400);
         
-        // Get current stock
-        $prodStmt = $db->prepare("SELECT quantity, name FROM products WHERE id = ?");
+        // Get current stock and threshold
+        $prodStmt = $db->prepare("SELECT quantity, name, low_stock_threshold FROM products WHERE id = ?");
         $prodStmt->execute([$productId]);
         $product = $prodStmt->fetch();
         
@@ -100,6 +100,17 @@ switch ($method) {
             
             // Update product quantity
             $db->prepare("UPDATE products SET quantity = ?, updated_at = NOW() WHERE id = ?")->execute([$newBalance, $productId]);
+            
+            // Check for low stock alert
+            if ($newBalance <= (int)$product['low_stock_threshold'] && $currentQty > (int)$product['low_stock_threshold']) {
+                createNotification(
+                    null, // global alert
+                    "Low Stock Alert",
+                    "Product '{$product['name']}' has fallen below its low stock threshold. Current stock: $newBalance",
+                    "warning",
+                    "/products?filter=low_stock"
+                );
+            }
             
             $db->commit();
             jsonResponse(['success' => true, 'message' => "Stock $type recorded: $quantity × {$product['name']}", 'balance' => $newBalance]);

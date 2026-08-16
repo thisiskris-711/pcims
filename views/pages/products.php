@@ -33,6 +33,11 @@ include dirname(__DIR__) . '/layouts/header.php';
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
         </select>
+        <select class="form-control" id="expiryFilter" style="width:auto;min-width:140px;">
+            <option value="">Expiry Filter</option>
+            <option value="expiring_soon">Expiring Soon (30 days)</option>
+            <option value="expired">Expired</option>
+        </select>
     </div>
     <div class="toolbar-right">
         <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
@@ -57,6 +62,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <th>Cost</th>
                         <th>Price</th>
                         <th>Stock</th>
+                        <th>Expiry</th>
                         <th>Status</th>
                         <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
                         <th style="width:100px;">Actions</th>
@@ -64,7 +70,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                     </tr>
                 </thead>
                 <tbody id="productsBody">
-                    <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
                 </tbody>
             </table>
         </div>

@@ -73,7 +73,7 @@ include dirname(__DIR__) . '/layouts/header.php';
     <div class="stat-card emerald">
         <div class="stat-header">
             <div class="stat-icon">
-                <i data-lucide="dollar-sign" style="width:22px;height:22px;"></i>
+                <i data-lucide="banknote" style="width:22px;height:22px;"></i>
             </div>
             <?php if ($revenueChange != 0): ?>
             <span class="stat-badge <?= $revenueChange > 0 ? 'up' : 'down' ?>">

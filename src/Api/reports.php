@@ -108,6 +108,42 @@ switch ($action) {
         jsonResponse(['data' => $data]);
         break;
         
+    case 'forecast':
+        $data = $db->query("
+            SELECT 
+                p.sku, 
+                p.name, 
+                c.name as category, 
+                p.quantity, 
+                COALESCE(SUM(si.quantity), 0) as recent_sales,
+                ROUND(COALESCE(SUM(si.quantity), 0) / 30, 2) as avg_daily_sales,
+                CASE 
+                    WHEN COALESCE(SUM(si.quantity), 0) > 0 
+                    THEN ROUND(p.quantity / (SUM(si.quantity) / 30), 1)
+                    ELSE 999 
+                END as days_remaining,
+                CASE
+                    WHEN COALESCE(SUM(si.quantity), 0) > 0 
+                    THEN GREATEST(0, CEIL((SUM(si.quantity) / 30) * 30) - p.quantity)
+                    ELSE 0
+                END as suggested_reorder
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN sale_items si ON p.id = si.product_id
+            LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            WHERE p.status = 'active'
+            GROUP BY p.id
+            ORDER BY days_remaining ASC, recent_sales DESC
+        ")->fetchAll();
+        
+        if ($export === 'csv') {
+            exportCSV('predictive_forecast_report', ['SKU', 'Product', 'Category', 'Current Stock', '30-Day Sales', 'Avg Daily Sales', 'Est. Days Remaining', 'Suggested Reorder'], $data,
+                fn($r) => [$r['sku'], $r['name'], $r['category'], $r['quantity'], $r['recent_sales'], $r['avg_daily_sales'], $r['days_remaining'] == 999 ? '999+' : $r['days_remaining'], $r['suggested_reorder']]);
+        }
+        
+        jsonResponse(['data' => $data]);
+        break;
+        
     default:
         jsonResponse(['error' => 'Invalid report type'], 400);
 }

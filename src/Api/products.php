@@ -42,6 +42,10 @@ switch ($method) {
         
         if ($filter === 'low_stock') {
             $where .= " AND p.quantity <= p.low_stock_threshold AND p.status = 'active'";
+        } elseif ($filter === 'expiring_soon') {
+            $where .= " AND p.expiry_date IS NOT NULL AND p.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)";
+        } elseif ($filter === 'expired') {
+            $where .= " AND p.expiry_date IS NOT NULL AND p.expiry_date < CURDATE()";
         }
         
         // Count
@@ -85,6 +89,7 @@ switch ($method) {
         $lowStockThreshold = (int)($_POST['low_stock_threshold'] ?? 10);
         $barcode = trim($_POST['barcode'] ?? '');
         $status = $_POST['status'] ?? 'active';
+        $expiryDate = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] : null;
         
         if (empty($name)) {
             jsonResponse(['error' => 'Product name is required'], 400);
@@ -107,10 +112,10 @@ switch ($method) {
         }
         
         $stmt = $db->prepare("
-            INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, expiry_date, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $quantity, $lowStockThreshold, $image, $barcode, $status, getCurrentUserId()]);
+        $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $quantity, $lowStockThreshold, $image, $barcode, $expiryDate, $status, getCurrentUserId()]);
         
         $productId = $db->lastInsertId();
         
@@ -141,7 +146,7 @@ switch ($method) {
         $fields = [];
         $values = [];
         
-        $allowedFields = ['name', 'description', 'category_id', 'cost_price', 'selling_price', 'low_stock_threshold', 'barcode', 'status'];
+        $allowedFields = ['name', 'description', 'category_id', 'cost_price', 'selling_price', 'low_stock_threshold', 'barcode', 'expiry_date', 'status'];
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
                 $fields[] = "$field = ?";
