@@ -45,9 +45,7 @@ function renderSuppliers(suppliers) {
 
         let actions = `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); viewSupplier(${s.id})" title="View Details"><i data-lucide="eye" style="width:16px;height:16px;"></i></button>`;
 
-        if (window.CAN_EDIT) {
-            actions += ` <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openSupplierModal(${s.id})" title="Edit"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>`;
-        }
+
         if (window.CAN_DELETE && s.status !== 'inactive') {
             actions += ` <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); deleteSupplier(${s.id}, '${escapeHtml(s.name)}')" title="Deactivate" style="color:var(--error-color);"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>`;
         }

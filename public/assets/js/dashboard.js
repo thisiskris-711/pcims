@@ -28,10 +28,7 @@ function renderSalesChart(data) {
     // Destroy existing chart
     if (window.salesChartInstance) window.salesChartInstance.destroy();
     
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
-    gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
-    
+        
     window.salesChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -39,15 +36,15 @@ function renderSalesChart(data) {
             datasets: [{
                 label: 'Revenue',
                 data: data.values || [],
-                borderColor: '#8b5cf6',
-                backgroundColor: gradient,
+                borderColor: '#9A0002',
+                backgroundColor: 'rgba(154, 0, 2, 0.1)',
                 fill: true,
                 tension: 0.4,
                 borderWidth: 2,
                 pointRadius: 0,
                 pointHitRadius: 10,
                 pointHoverRadius: 5,
-                pointHoverBackgroundColor: '#8b5cf6',
+                pointHoverBackgroundColor: '#9A0002',
                 pointHoverBorderColor: '#fff',
                 pointHoverBorderWidth: 2,
             }]
@@ -65,7 +62,7 @@ function renderSalesChart(data) {
                     backgroundColor: 'rgba(15, 22, 41, 0.9)',
                     titleColor: '#e2e8f0',
                     bodyColor: '#94a3b8',
-                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                    borderColor: 'rgba(154, 0, 2, 0.3)',
                     borderWidth: 1,
                     padding: 12,
                     cornerRadius: 8,
@@ -117,18 +114,16 @@ function renderCategoryChart(data) {
             labels: data.labels || [],
             datasets: [{
                 data: data.values || [],
-                backgroundColor: data.colors || [
-                    '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', 
-                    '#f43f5e', '#ec4899', '#6366f1', '#64748b'
-                ],
-                borderColor: 'rgba(15, 22, 41, 0.8)',
-                borderWidth: 3,
+                backgroundColor: data.colors || ['#9A0002', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e', '#ec4899', '#6366f1', '#64748b'],
+                borderWidth: 0,
+                
                 hoverOffset: 8,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { right: 20 } },
             cutout: '65%',
             plugins: {
                 legend: {
@@ -138,14 +133,15 @@ function renderCategoryChart(data) {
                         font: { size: 12, family: 'Inter' },
                         padding: 16,
                         usePointStyle: true,
-                        pointStyleWidth: 10,
+                        boxWidth: 12,
+                        boxHeight: 12,
                     }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 22, 41, 0.9)',
                     titleColor: '#e2e8f0',
                     bodyColor: '#94a3b8',
-                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                    borderColor: 'rgba(154, 0, 2, 0.3)',
                     borderWidth: 1,
                     padding: 12,
                     cornerRadius: 8,

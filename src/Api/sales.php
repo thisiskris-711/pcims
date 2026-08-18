@@ -26,9 +26,20 @@ switch ($method) {
             
             if (!$saleData) jsonResponse(['error' => 'Sale not found'], 404);
             
-            $items = $db->prepare("SELECT si.*, p.sku FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
+            $items = $db->prepare("SELECT si.*, p.sku, p.type FROM sale_items si LEFT JOIN products p ON si.product_id = p.id WHERE si.sale_id = ?");
             $items->execute([$id]);
-            $saleData['items'] = $items->fetchAll();
+            $saleItems = $items->fetchAll();
+            
+            foreach ($saleItems as &$item) {
+                if (($item['type'] ?? '') === 'bundle') {
+                    $compStmt = $db->prepare("SELECT p.name, pbi.quantity FROM product_bundle_items pbi JOIN products p ON pbi.product_id = p.id WHERE pbi.bundle_id = ?");
+                    $compStmt->execute([$item['product_id']]);
+                    $item['components'] = $compStmt->fetchAll();
+                }
+            }
+            unset($item);
+            
+            $saleData['items'] = $saleItems;
             
             jsonResponse($saleData);
         }
@@ -114,7 +125,7 @@ switch ($method) {
             
             // Validate all items first
             foreach ($items as $item) {
-                $prodStmt = $db->prepare("SELECT id, name, selling_price, quantity, low_stock_threshold FROM products WHERE id = ? AND status = 'active'");
+                $prodStmt = $db->prepare("SELECT id, name, selling_price, quantity, low_stock_threshold, type FROM products WHERE id = ? AND status = 'active'");
                 $prodStmt->execute([$item['product_id']]);
                 $product = $prodStmt->fetch();
                 
@@ -122,7 +133,22 @@ switch ($method) {
                 
                 $qty = (int)$item['quantity'];
                 if ($qty <= 0) throw new Exception("Invalid quantity for {$product['name']}");
-                if ($qty > $product['quantity']) throw new Exception("Insufficient stock for {$product['name']} (available: {$product['quantity']})");
+                
+                $bundleComponents = [];
+                if ($product['type'] === 'bundle') {
+                    $compStmt = $db->prepare("SELECT pbi.product_id, pbi.quantity as required_qty, p.quantity as current_stock, p.name, p.low_stock_threshold FROM product_bundle_items pbi JOIN products p ON pbi.product_id = p.id WHERE pbi.bundle_id = ?");
+                    $compStmt->execute([$product['id']]);
+                    $bundleComponents = $compStmt->fetchAll();
+                    
+                    foreach ($bundleComponents as $c) {
+                        $totalNeeded = $c['required_qty'] * $qty;
+                        if ($totalNeeded > $c['current_stock']) {
+                            throw new Exception("Insufficient stock for component {$c['name']} (needed: $totalNeeded, available: {$c['current_stock']}) for bundle {$product['name']}");
+                        }
+                    }
+                } else {
+                    if ($qty > $product['quantity']) throw new Exception("Insufficient stock for {$product['name']} (available: {$product['quantity']})");
+                }
                 
                 $unitPrice = (float)($item['unit_price'] ?? $product['selling_price']);
                 $itemDiscount = (float)($item['discount'] ?? 0);
@@ -138,6 +164,8 @@ switch ($method) {
                     'total' => $itemTotal,
                     'current_stock' => $product['quantity'],
                     'low_stock_threshold' => $product['low_stock_threshold'],
+                    'type' => $product['type'],
+                    'bundle_components' => $bundleComponents
                 ];
             }
             
@@ -169,23 +197,45 @@ switch ($method) {
                 $db->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, discount, total) VALUES (?, ?, ?, ?, ?, ?, ?)")
                     ->execute([$saleId, $vi['product_id'], $vi['product_name'], $vi['quantity'], $vi['unit_price'], $vi['discount'], $vi['total']]);
                 
-                $newStock = $vi['current_stock'] - $vi['quantity'];
-                $db->prepare("UPDATE products SET quantity = ?, updated_at = NOW() WHERE id = ?")->execute([$newStock, $vi['product_id']]);
-                
-                // Log stock transaction
-                $ref = generateReferenceNo('out');
-                $db->prepare("INSERT INTO stock_transactions (product_id, type, quantity, balance_after, reference_no, notes, created_by) VALUES (?, 'out', ?, ?, ?, ?, ?)")
-                    ->execute([$vi['product_id'], $vi['quantity'], $newStock, $ref, "POS Sale: $invoiceNo", getCurrentUserId()]);
-
-                // Check for low stock alert
-                if ($newStock <= (int)$vi['low_stock_threshold'] && $vi['current_stock'] > (int)$vi['low_stock_threshold']) {
-                    createNotification(
-                        null, // global alert
-                        "Low Stock Alert",
-                        "Product '{$vi['product_name']}' has fallen below its low stock threshold after a sale. Current stock: $newStock",
-                        "warning",
-                        "/products?filter=low_stock"
-                    );
+                if ($vi['type'] === 'bundle') {
+                    foreach ($vi['bundle_components'] as $c) {
+                        $qtyToDeduct = $c['required_qty'] * $vi['quantity'];
+                        $newStock = $c['current_stock'] - $qtyToDeduct;
+                        $db->prepare("UPDATE products SET quantity = ?, updated_at = NOW() WHERE id = ?")->execute([$newStock, $c['product_id']]);
+                        
+                        $ref = generateReferenceNo('out');
+                        $db->prepare("INSERT INTO stock_transactions (product_id, type, quantity, balance_after, reference_no, notes, created_by) VALUES (?, 'out', ?, ?, ?, ?, ?)")
+                            ->execute([$c['product_id'], $qtyToDeduct, $newStock, $ref, "POS Sale: $invoiceNo (Bundle: {$vi['product_name']})", getCurrentUserId()]);
+                            
+                        if ($newStock <= (int)$c['low_stock_threshold'] && $c['current_stock'] > (int)$c['low_stock_threshold']) {
+                            createNotification(
+                                null, 
+                                "Low Stock Alert",
+                                "Product '{$c['name']}' has fallen below its low stock threshold after a bundle sale. Current stock: $newStock",
+                                "warning",
+                                "/products?filter=low_stock"
+                            );
+                        }
+                    }
+                } else {
+                    $newStock = $vi['current_stock'] - $vi['quantity'];
+                    $db->prepare("UPDATE products SET quantity = ?, updated_at = NOW() WHERE id = ?")->execute([$newStock, $vi['product_id']]);
+                    
+                    // Log stock transaction
+                    $ref = generateReferenceNo('out');
+                    $db->prepare("INSERT INTO stock_transactions (product_id, type, quantity, balance_after, reference_no, notes, created_by) VALUES (?, 'out', ?, ?, ?, ?, ?)")
+                        ->execute([$vi['product_id'], $vi['quantity'], $newStock, $ref, "POS Sale: $invoiceNo", getCurrentUserId()]);
+    
+                    // Check for low stock alert
+                    if ($newStock <= (int)$vi['low_stock_threshold'] && $vi['current_stock'] > (int)$vi['low_stock_threshold']) {
+                        createNotification(
+                            null, // global alert
+                            "Low Stock Alert",
+                            "Product '{$vi['product_name']}' has fallen below its low stock threshold after a sale. Current stock: $newStock",
+                            "warning",
+                            "/products?filter=low_stock"
+                        );
+                    }
                 }
             }
             

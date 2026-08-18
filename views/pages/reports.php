@@ -33,11 +33,11 @@ include dirname(__DIR__) . '/layouts/header.php';
 <!-- Filters -->
 <div class="report-filters" id="reportFilters">
     <div class="form-group">
-        <label class="form-label">From</label>
+        <label class="form-label" for="reportFrom">From</label>
         <input type="date" class="form-control" id="reportFrom" value="<?= date('Y-m-01') ?>">
     </div>
     <div class="form-group">
-        <label class="form-label">To</label>
+        <label class="form-label" for="reportTo">To</label>
         <input type="date" class="form-control" id="reportTo" value="<?= date('Y-m-d') ?>">
     </div>
     <div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">
@@ -64,16 +64,19 @@ include dirname(__DIR__) . '/layouts/header.php';
                 </tbody>
             </table>
         </div>
+        <div id="reportsPagination" class="pagination"></div>
     </div>
 </div>
 
 <script>
 let currentReport = 'sales';
+let reportPage = 1;
 
 function switchReportTab(btn, type) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentReport = type;
+    reportPage = 1;
     
     // Show/hide date filters
     if (type === 'low_stock' || type === 'forecast') {
@@ -86,11 +89,14 @@ function switchReportTab(btn, type) {
     document.getElementById('reportSummary').style.display = 'none';
     document.getElementById('reportHead').innerHTML = '<tr><th>Click Generate</th></tr>';
     document.getElementById('reportBody').innerHTML = '<tr><td class="text-center text-muted" style="padding:40px;">Click Generate to load this report</td></tr>';
+    document.getElementById('reportsPagination').innerHTML = '';
     
     if (type === 'low_stock' || type === 'forecast') loadReport();
 }
 
 async function loadReport() {
+    // Reset to page 1 if this was triggered by clicking the Generate button (not a pagination click)
+    // Actually we can leave reportPage alone since the Generate button would just re-fetch the current page.
     const dateFrom = document.getElementById('reportFrom')?.value || '';
     const dateTo = document.getElementById('reportTo')?.value || '';
     
@@ -98,6 +104,7 @@ async function loadReport() {
         action: currentReport,
         date_from: dateFrom,
         date_to: dateTo,
+        page: reportPage
     });
     
     try {
@@ -106,6 +113,11 @@ async function loadReport() {
     } catch (e) {
         showToast('Failed to generate report', 'error');
     }
+}
+
+function reportsGoPage(p) {
+    reportPage = p;
+    loadReport();
 }
 
 function exportReport() {
@@ -248,6 +260,12 @@ function renderReport(data) {
                 </tr>`;
             }).join('');
             break;
+    }
+    
+    if (['low_stock', 'forecast'].includes(currentReport) && typeof renderPagination === 'function') {
+        renderPagination(document.getElementById('reportsPagination'), data.page, data.total_pages, reportsGoPage);
+    } else {
+        document.getElementById('reportsPagination').innerHTML = '';
     }
 }
 </script>

@@ -7,7 +7,7 @@ requireLogin();
 requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER, ROLE_AUDITOR);
 
 $db = getDB();
-$products = $db->query("SELECT id, name, sku, quantity FROM products WHERE status='active' ORDER BY name")->fetchAll();
+$products = $db->query("SELECT id, name, sku, quantity, image FROM products WHERE status='active' AND type != 'bundle' ORDER BY name")->fetchAll();
 
 $pageTitle = 'Stock Movement';
 $currentPage = 'stock';
@@ -74,7 +74,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <select class="form-control" id="stockProduct" required>
                     <option value="">Select product</option>
                     <?php foreach ($products as $p): ?>
-                    <option value="<?= $p['id'] ?>" data-qty="<?= $p['quantity'] ?>">
+                    <option value="<?= $p['id'] ?>" data-qty="<?= $p['quantity'] ?>" data-image="<?= sanitize($p['image'] ?? '') ?>" data-name="<?= sanitize($p['name']) ?>" data-sku="<?= sanitize($p['sku']) ?>">
                         <?= sanitize($p['name']) ?> (<?= sanitize($p['sku']) ?>) — Stock: <?= $p['quantity'] ?>
                     </option>
                     <?php endforeach; ?>
@@ -98,11 +98,46 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 
+<!-- Tom Select Library -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+
 <script>
 let stockPage = 1;
+let stockProductSelect;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadStockHistory();
+    
+    // Initialize Tom Select for Product dropdown
+    stockProductSelect = new TomSelect('#stockProduct', {
+        searchField: ['text', 'sku'],
+        render: {
+            option: function(data, escape) {
+                if (data.value === '') return `<div>Select product</div>`;
+                const img = data.image ? `<img src="${window.APP_URL}/uploads/products/${escape(data.image)}" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:12px;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:4px;background:var(--bg-hover);margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i data-lucide="image" style="width:16px;height:16px;color:var(--text-muted);"></i></div>`;
+                
+                return `<div style="display:flex;align-items:center;padding:6px 12px;">
+                            ${img}
+                            <div>
+                                <div style="font-weight:500;color:var(--text-main);">${escape(data.name)}</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">${escape(data.sku)} &mdash; Stock: ${escape(data.qty)}</div>
+                            </div>
+                        </div>`;
+            },
+            item: function(data, escape) {
+                if (data.value === '') return `<div>Select product</div>`;
+                const img = data.image ? `<img src="${window.APP_URL}/uploads/products/${escape(data.image)}" style="width:20px;height:20px;object-fit:cover;border-radius:4px;margin-right:8px;vertical-align:middle;">` : '';
+                return `<div style="display:flex;align-items:center;">
+                            ${img}
+                            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escape(data.name)} (${escape(data.sku)})</span>
+                        </div>`;
+            }
+        },
+        onDropdownOpen: function() {
+            lucide.createIcons();
+        }
+    });
     
     ['stockType', 'dateFrom', 'dateTo'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => { stockPage = 1; loadStockHistory(); });
@@ -159,16 +194,7 @@ function renderStock(response) {
     
     lucide.createIcons({ nodes: [tbody] });
     
-    // Pagination
-    const { page, total_pages } = response;
-    const pagEl = document.getElementById('stockPagination');
-    if (total_pages <= 1) { pagEl.innerHTML = ''; return; }
-    let html = `<a class="${page<=1?'disabled':''}" onclick="stockGoPage(${page-1})">&laquo;</a>`;
-    for (let i = Math.max(1,page-2); i <= Math.min(total_pages,page+2); i++) {
-        html += `<a class="${i===page?'active':''}" onclick="stockGoPage(${i})">${i}</a>`;
-    }
-    html += `<a class="${page>=total_pages?'disabled':''}" onclick="stockGoPage(${page+1})">&raquo;</a>`;
-    pagEl.innerHTML = html;
+    renderPagination(document.getElementById('stockPagination'), response.page, response.total_pages, stockGoPage);
 }
 
 function stockGoPage(p) { stockPage = p; loadStockHistory(); }
@@ -177,7 +203,7 @@ function openStockModal(type) {
     document.getElementById('stockTypeInput').value = type;
     document.getElementById('stockModalTitle').textContent = type === 'in' ? 'Record Stock In' : 'Record Stock Out';
     document.getElementById('stockSubmitBtn').className = `btn ${type === 'in' ? 'btn-success' : 'btn-danger'}`;
-    document.getElementById('stockProduct').value = '';
+    if (stockProductSelect) stockProductSelect.clear();
     document.getElementById('stockQty').value = '';
     document.getElementById('stockNotes').value = '';
     openModal('stockModal');

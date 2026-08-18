@@ -56,7 +56,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <thead>
                     <tr>
                         <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
-                        <th>Product</th>
+                        <th style="min-width:250px;">Product</th>
                         <th>SKU</th>
                         <th>Category</th>
                         <th>Cost</th>
@@ -64,13 +64,14 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <th>Stock</th>
                         <th>Expiry</th>
                         <th>Status</th>
+                        <th>Added By</th>
                         <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
                         <th style="width:100px;">Actions</th>
                         <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody id="productsBody">
-                    <tr><td colspan="10" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
                 </tbody>
             </table>
         </div>

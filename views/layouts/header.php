@@ -28,7 +28,18 @@ $flash = getFlashMessage();
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <!-- App Styles -->
-    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= APP_URL ?>/assets/css/style.css?v=<?= filemtime(dirname(__DIR__, 2) . '/public/assets/css/style.css') ?>">
+    
+    <!-- Dark Mode FOUC Prevention -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 <body>
     <!-- Sidebar -->
@@ -162,6 +173,9 @@ $flash = getFlashMessage();
             </div>
             <div class="topbar-right">
                 <div class="topbar-actions">
+                    <button class="topbar-btn" id="themeToggleBtn" title="Toggle Theme">
+                        <i data-lucide="moon" style="width:20px;height:20px;" id="themeToggleIcon"></i>
+                    </button>
                     <div class="dropdown-wrapper" id="notificationDropdownWrapper">
                         <button class="topbar-btn position-relative" id="notificationBtn" title="Notifications">
                             <i data-lucide="bell" style="width:20px;height:20px;"></i>
@@ -183,7 +197,7 @@ $flash = getFlashMessage();
                     <a href="<?= APP_URL ?>/profile" class="topbar-btn" title="Profile">
                         <i data-lucide="user" style="width:20px;height:20px;"></i>
                     </a>
-                    <a href="<?= APP_URL ?>/logout" class="topbar-btn" title="Logout" onclick="return confirm('Are you sure you want to logout?')">
+                    <a href="#" class="topbar-btn" title="Logout" onclick="event.preventDefault(); openModal('logoutModal')">
                         <i data-lucide="log-out" style="width:20px;height:20px;"></i>
                     </a>
                 </div>
@@ -192,13 +206,13 @@ $flash = getFlashMessage();
         
         <!-- Flash Messages -->
         <?php if ($flash): ?>
-        <div class="alert alert-<?= $flash['type'] ?>" id="flashAlert">
-            <i data-lucide="<?= $flash['type'] === 'success' ? 'check-circle' : ($flash['type'] === 'error' ? 'alert-circle' : 'info') ?>" style="width:18px;height:18px;"></i>
-            <span><?= sanitize($flash['message']) ?></span>
-            <button class="alert-close" onclick="this.parentElement.remove()">
-                <i data-lucide="x" style="width:16px;height:16px;"></i>
-            </button>
-        </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                if (typeof showToast === 'function') {
+                    showToast('<?= addslashes(sanitize($flash['message'])) ?>', '<?= sanitize($flash['type']) ?>', 4000);
+                }
+            });
+        </script>
         <?php endif; ?>
         
         <!-- Page Content -->

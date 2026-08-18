@@ -356,14 +356,25 @@ async function showReceipt(saleResult) {
     try {
         const sale = await apiRequest(`/api/sales?action=detail&id=${saleResult.sale_id}`);
         
-        const itemsHtml = (sale.items || []).map(item => `
+        const itemsHtml = (sale.items || []).map(item => {
+            let html = `
             <tr>
-                <td style="text-align:left;">${item.product_name}</td>
+                <td style="text-align:left; font-weight: 500;">${item.product_name}</td>
                 <td style="text-align:center;">${item.quantity}</td>
-                <td style="text-align:right;">$${parseFloat(item.unit_price).toFixed(2)}</td>
-                <td style="text-align:right;">$${parseFloat(item.total).toFixed(2)}</td>
-            </tr>
-        `).join('');
+                <td style="text-align:right;">₱${parseFloat(item.unit_price).toFixed(2)}</td>
+                <td style="text-align:right;">₱${parseFloat(item.total).toFixed(2)}</td>
+            </tr>`;
+            
+            if (item.components && item.components.length > 0) {
+                html += item.components.map(c => `
+                <tr>
+                    <td style="text-align:left; padding-left: 15px; font-size: 0.85em; color: #666; padding-top: 0; padding-bottom: 4px;">↳ ${c.quantity * item.quantity}x ${c.name}</td>
+                    <td colspan="3"></td>
+                </tr>
+                `).join('');
+            }
+            return html;
+        }).join('');
 
         const paymentStatusLabel = sale.payment_status === 'credit' ? '<span style="color:var(--warning-color);font-weight:600;">CREDIT</span>' : 'PAID';
         
@@ -388,11 +399,11 @@ async function showReceipt(saleResult) {
                     <tbody>${itemsHtml}</tbody>
                 </table>
                 <div style="border-top:1px dashed #ccc;padding-top:8px;margin-top:8px;">
-                    <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>$${parseFloat(sale.subtotal).toFixed(2)}</span></div>
-                    ${parseFloat(sale.discount) > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-$${parseFloat(sale.discount).toFixed(2)}</span></div>` : ''}
-                    <div style="display:flex;justify-content:space-between;"><span>Tax</span><span>$${parseFloat(sale.tax).toFixed(2)}</span></div>
+                    <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>₱${parseFloat(sale.subtotal).toFixed(2)}</span></div>
+                    ${parseFloat(sale.discount) > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-₱${parseFloat(sale.discount).toFixed(2)}</span></div>` : ''}
+                    <div style="display:flex;justify-content:space-between;"><span>Tax</span><span>₱${parseFloat(sale.tax).toFixed(2)}</span></div>
                     <div class="receipt-total" style="display:flex;justify-content:space-between;padding-top:8px;margin-top:8px;">
-                        <span>TOTAL</span><span>$${parseFloat(sale.total).toFixed(2)}</span>
+                        <span>TOTAL</span><span>₱${parseFloat(sale.total).toFixed(2)}</span>
                     </div>
                 </div>
                 <div class="receipt-footer">

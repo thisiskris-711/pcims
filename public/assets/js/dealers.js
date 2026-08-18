@@ -52,9 +52,7 @@ function renderDealers(dealers) {
         if (window.CAN_RECORD_PAYMENT && balance > 0) {
             actions += ` <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openPaymentModal(${d.id}, '${escapeHtml(d.name)}', ${d.credit_balance})" title="Record Payment" style="color:var(--success-color);"><i data-lucide="banknote" style="width:16px;height:16px;"></i></button>`;
         }
-        if (window.CAN_EDIT) {
-            actions += ` <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openDealerModal(${d.id})" title="Edit"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>`;
-        }
+
         if (window.CAN_DELETE && d.status !== 'inactive') {
             actions += ` <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); deleteDealer(${d.id}, '${escapeHtml(d.name)}')" title="Deactivate" style="color:var(--error-color);"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>`;
         }
@@ -65,7 +63,6 @@ function renderDealers(dealers) {
                 <div style="font-weight:500;">${escapeHtml(d.name)}</div>
                 ${d.email ? `<div style="font-size:0.78rem;color:var(--text-muted);">${escapeHtml(d.email)}</div>` : ''}
             </td>
-            <td>${escapeHtml(d.contact_person || '—')}</td>
             <td>${escapeHtml(d.phone || '—')}</td>
             <td>${formatCurrency(d.credit_limit)}</td>
             <td>
@@ -102,7 +99,6 @@ async function loadDealerForEdit(id) {
         const d = await apiRequest(`/api/dealers?action=detail&id=${id}`);
         document.getElementById('dealerId').value = d.id;
         document.getElementById('dealerName').value = d.name;
-        document.getElementById('contactPerson').value = d.contact_person || '';
         document.getElementById('dealerEmail').value = d.email || '';
         document.getElementById('dealerPhone').value = d.phone || '';
         document.getElementById('dealerAddress').value = d.address || '';
@@ -119,7 +115,7 @@ async function saveDealer(e) {
     const id = document.getElementById('dealerId').value;
     const body = JSON.stringify({
         name: document.getElementById('dealerName').value,
-        contact_person: document.getElementById('contactPerson').value,
+        contact_person: '',
         email: document.getElementById('dealerEmail').value,
         phone: document.getElementById('dealerPhone').value,
         address: document.getElementById('dealerAddress').value,
@@ -276,7 +272,6 @@ async function viewDealer(id) {
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.88rem;">
-                <div><span style="color:var(--text-muted);">Contact:</span> ${escapeHtml(d.contact_person || '—')}</div>
                 <div><span style="color:var(--text-muted);">Phone:</span> ${escapeHtml(d.phone || '—')}</div>
                 <div><span style="color:var(--text-muted);">Email:</span> ${escapeHtml(d.email || '—')}</div>
                 <div><span style="color:var(--text-muted);">Address:</span> ${escapeHtml(d.address || '—')}</div>

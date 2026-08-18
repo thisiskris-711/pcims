@@ -23,6 +23,7 @@ include dirname(__DIR__) . '/layouts/header.php';
             <div class="toolbar-left" style="flex:1;">
                 <div class="search-bar" style="max-width:100%;">
                     <span class="search-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></span>
+                    <label for="posSearch" style="display:none;">Search products</label>
                     <input type="text" class="form-control" id="posSearch" placeholder="Search products by name, SKU, or barcode...">
                 </div>
             </div>
@@ -30,10 +31,9 @@ include dirname(__DIR__) . '/layouts/header.php';
         
         <!-- Category Tabs -->
         <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
-            <button class="btn btn-sm btn-secondary pos-cat-btn active" data-cat="" onclick="filterPOSCategory(this, '')">All</button>
+            <button class="btn btn-sm btn-ghost pos-cat-btn active" data-cat="" onclick="filterPOSCategory(this, '')">All</button>
             <?php foreach ($categories as $cat): ?>
-            <button class="btn btn-sm btn-ghost pos-cat-btn" data-cat="<?= $cat['id'] ?>" onclick="filterPOSCategory(this, '<?= $cat['id'] ?>')" 
-                    style="border:1px solid <?= sanitize($cat['color']) ?>33;color:<?= sanitize($cat['color']) ?>;">
+            <button class="btn btn-sm btn-ghost pos-cat-btn" data-cat="<?= $cat['id'] ?>" onclick="filterPOSCategory(this, '<?= $cat['id'] ?>')">
                 <?= sanitize($cat['name']) ?>
             </button>
             <?php endforeach; ?>
@@ -62,19 +62,19 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="pos-cart-summary">
             <div class="summary-row">
                 <span>Subtotal</span>
-                <span id="cartSubtotal">$0.00</span>
+                <span id="cartSubtotal">₱0.00</span>
             </div>
             <div class="summary-row">
                 <span>Discount</span>
-                <span id="cartDiscount">-$0.00</span>
+                <span id="cartDiscount">-₱0.00</span>
             </div>
             <div class="summary-row">
                 <span>Tax (<?= $taxRate ?>%)</span>
-                <span id="cartTax">$0.00</span>
+                <span id="cartTax">₱0.00</span>
             </div>
             <div class="summary-row total">
                 <span>Total</span>
-                <span id="cartTotal">$0.00</span>
+                <span id="cartTotal">₱0.00</span>
             </div>
         </div>
         
@@ -97,7 +97,7 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
     <div class="modal-body">
         <div class="form-group">
-            <label class="form-label">Dealer *</label>
+            <label class="form-label" for="dealerSearchInput">Dealer *</label>
             <div style="position:relative;" id="dealerSelectWrapper">
                 <input type="text" class="form-control" id="dealerSearchInput" placeholder="Search dealer by name or code..." autocomplete="off">
                 <input type="hidden" id="selectedDealerId" value="">
@@ -108,7 +108,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label">Payment Method</label>
+                <label class="form-label" for="paymentMethod">Payment Method</label>
                 <select class="form-control" id="paymentMethod">
                     <option value="cash">Cash</option>
                     <option value="card">Card</option>
@@ -117,7 +117,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Payment Status</label>
+                <label class="form-label" for="paymentStatus">Payment Status</label>
                 <select class="form-control" id="paymentStatus" onchange="onPaymentStatusChange()">
                     <option value="paid">Paid (Settled Now)</option>
                     <option value="credit">Credit (Charge to Dealer)</option>
@@ -128,19 +128,19 @@ include dirname(__DIR__) . '/layouts/header.php';
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label">Order Discount (₱)</label>
+                <label class="form-label" for="orderDiscount">Order Discount (₱)</label>
                 <input type="number" class="form-control" id="orderDiscount" value="0" min="0" step="0.01" onchange="updateCartTotals()">
             </div>
         </div>
         <div class="form-group">
-            <label class="form-label">Notes</label>
+            <label class="form-label" for="checkoutNotes">Notes</label>
             <textarea class="form-control" id="checkoutNotes" rows="2" placeholder="Optional notes"></textarea>
         </div>
         
         <div style="background:var(--bg-tertiary);border-radius:var(--border-radius-sm);padding:16px;margin-top:16px;">
             <div class="summary-row total" style="border:none;margin:0;padding:0;">
                 <span>Total to Pay</span>
-                <span id="checkoutTotal" style="font-size:1.4rem;">$0.00</span>
+                <span id="checkoutTotal" style="font-size:1.4rem;">₱0.00</span>
             </div>
         </div>
     </div>

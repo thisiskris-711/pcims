@@ -34,18 +34,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Auto-dismiss flash alerts
-    const flashAlert = document.getElementById('flashAlert');
-    if (flashAlert) {
-        setTimeout(() => {
-            flashAlert.style.opacity = '0';
-            flashAlert.style.transform = 'translateY(-10px)';
-            setTimeout(() => flashAlert.remove(), 300);
-        }, 4000);
-    }
-    
+
     // Initialize notification system
     initNotifications();
+    
+    // Theme Toggle Logic
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeToggleIcon = document.getElementById('themeToggleIcon');
+    
+    if (themeToggleBtn) {
+        // Set initial icon based on current theme
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (currentTheme === 'dark') {
+            themeToggleIcon.setAttribute('data-lucide', 'sun');
+        }
+        
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                themeToggleIcon.setAttribute('data-lucide', 'moon');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                themeToggleIcon.setAttribute('data-lucide', 'sun');
+            }
+            
+            // Re-render lucide icon for the button
+            lucide.createIcons({
+                root: themeToggleBtn
+            });
+        });
+    }
 });
 
 // ── Toast Notifications ──
@@ -373,4 +395,29 @@ function timeAgoFormat(datetime) {
     if (diffSeconds < 604800) return Math.floor(diffSeconds / 86400) + 'd ago';
     
     return date.toLocaleDateString();
+}
+
+// ── Pagination Helper ──
+function renderPagination(container, page, totalPages, callback) {
+    if (!container) return;
+    
+    page = parseInt(page, 10) || 1;
+    totalPages = parseInt(totalPages, 10) || 0;
+
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const cbName = callback.name || callback; // allow passing function name as string
+    let html = '';
+    html += `<a class="${page <= 1 ? 'disabled' : ''}" onclick="if(${page} > 1) { ${cbName}(${page - 1}); window.scrollTo({top:0, behavior:'smooth'}); }">&laquo;</a>`;
+    
+    for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+        html += `<a class="${i === page ? 'active' : ''}" onclick="${cbName}(${i}); window.scrollTo({top:0, behavior:'smooth'});">${i}</a>`;
+    }
+    
+    html += `<a class="${page >= totalPages ? 'disabled' : ''}" onclick="if(${page} < ${totalPages}) { ${cbName}(${page + 1}); window.scrollTo({top:0, behavior:'smooth'}); }">&raquo;</a>`;
+    
+    container.innerHTML = html;
 }

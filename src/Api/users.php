@@ -11,8 +11,22 @@ $db = getDB();
 
 switch ($method) {
     case 'GET':
-        $results = $db->query("SELECT id, username, email, full_name, role, status, last_login, created_at FROM users ORDER BY created_at DESC")->fetchAll();
-        jsonResponse(['data' => $results]);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
+        $offset = ($page - 1) * $perPage;
+
+        $total = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $totalPages = max(1, ceil($total / $perPage));
+
+        $stmt = $db->prepare("SELECT id, username, email, full_name, role, status, permissions, last_login, created_at FROM users ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
+        $stmt->execute();
+        
+        jsonResponse([
+            'data' => $stmt->fetchAll(),
+            'total' => $total,
+            'page' => $page,
+            'total_pages' => $totalPages
+        ]);
         break;
         
     case 'POST':
@@ -63,6 +77,13 @@ switch ($method) {
             if (strlen($input['password']) < 6) jsonResponse(['error' => 'Password must be at least 6 characters'], 400);
             $fields[] = "password_hash = ?";
             $values[] = password_hash($input['password'], PASSWORD_DEFAULT);
+        }
+        
+        if (isset($input['permissions'])) {
+            $fields[] = "permissions = ?";
+            // Only allow array format for safety
+            $perms = is_array($input['permissions']) ? $input['permissions'] : [];
+            $values[] = json_encode($perms);
         }
         
         if (empty($fields)) jsonResponse(['error' => 'No fields to update'], 400);

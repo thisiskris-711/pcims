@@ -64,7 +64,7 @@ function renderProducts(response) {
     
     if (products.length === 0) {
         tbody.innerHTML = `
-            <tr><td colspan="10">
+            <tr><td colspan="11">
                 <div class="empty-state">
                     <i data-lucide="package-open" style="width:48px;height:48px;"></i>
                     <h3>No Products Found</h3>
@@ -82,6 +82,8 @@ function renderProducts(response) {
         const imgHtml = p.image 
             ? `<img src="${APP_URL}/uploads/products/${p.image}" alt="">`
             : `<i data-lucide="image" style="width:18px;height:18px;"></i>`;
+            
+        const bundleBadge = p.type === 'bundle' ? `<span class="status" style="padding:2px 6px; font-size:0.65rem; background:var(--accent-violet); color:white;">Bundle</span>` : '';
             
         let expiryHtml = '<span class="text-muted">—</span>';
         if (p.expiry_date) {
@@ -106,7 +108,7 @@ function renderProducts(response) {
                 <div class="d-flex align-center gap-1">
                     <div class="product-thumb">${imgHtml}</div>
                     <div>
-                        <div class="font-bold">${escapeHtml(p.name)}</div>
+                        <div class="font-bold d-flex align-center gap-1">${escapeHtml(p.name)} ${bundleBadge}</div>
                         <div class="text-muted" style="font-size:0.75rem;">${p.description ? escapeHtml(p.description).substring(0, 50) + '...' : ''}</div>
                     </div>
                 </div>
@@ -127,12 +129,11 @@ function renderProducts(response) {
             </td>
             <td>${expiryHtml}</td>
             <td><span class="status status-${p.status}">${p.status}</span></td>
+            <td class="text-muted">${p.creator_name ? escapeHtml(p.creator_name) : '—'}</td>
             ${window.CAN_EDIT ? `
             <td>
                 <div class="d-flex gap-1">
-                    <a href="${APP_URL}/product_form?id=${p.id}" class="btn btn-ghost btn-icon sm" title="Edit">
-                        <i data-lucide="pencil" style="width:15px;height:15px;"></i>
-                    </a>
+
                     <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="promptDelete(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
                         <i data-lucide="trash-2" style="width:15px;height:15px;color:var(--accent-rose);"></i>
                     </button>
@@ -143,32 +144,12 @@ function renderProducts(response) {
     }).join('');
     
     lucide.createIcons({ nodes: [tbody] });
-    renderPagination(response);
-}
-
-function renderPagination(response) {
-    const container = document.getElementById('productsPagination');
-    const { page, total_pages } = response;
-    
-    if (total_pages <= 1) { container.innerHTML = ''; return; }
-    
-    let html = '';
-    
-    html += `<a class="${page <= 1 ? 'disabled' : ''}" onclick="goToPage(${page - 1})">&laquo;</a>`;
-    
-    for (let i = Math.max(1, page - 2); i <= Math.min(total_pages, page + 2); i++) {
-        html += `<a class="${i === page ? 'active' : ''}" onclick="goToPage(${i})">${i}</a>`;
-    }
-    
-    html += `<a class="${page >= total_pages ? 'disabled' : ''}" onclick="goToPage(${page + 1})">&raquo;</a>`;
-    
-    container.innerHTML = html;
+    renderPagination(document.getElementById('productsPagination'), response.page, response.total_pages, goToPage);
 }
 
 function goToPage(page) {
     currentPage = page;
     loadProducts();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function promptDelete(id, name) {

@@ -119,6 +119,58 @@ function hasRole(string ...$roles): bool {
 }
 
 /**
+ * Check if current user has a specific permission
+ */
+function hasPermission(string $permission): bool {
+    if (!isLoggedIn()) return false;
+    
+    static $userPerms = null;
+    static $userRole = null;
+    
+    if ($userPerms === null) {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT role, permissions FROM users WHERE id = ? AND status = 'active'");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch();
+        
+        if (!$user) {
+            // User not found or inactive, log them out
+            logout();
+            return false;
+        }
+        
+        $userRole = $user['role'];
+        $userPerms = $user['permissions'] ? json_decode($user['permissions'], true) : [];
+        if (!is_array($userPerms)) {
+            $userPerms = [];
+        }
+    }
+    
+    if ($userRole === ROLE_ADMIN) {
+        return true;
+    }
+    
+    return in_array($permission, $userPerms);
+}
+
+/**
+ * Require a specific permission (or admin role)
+ */
+function requirePermission(string $permission): void {
+    requireLogin();
+    
+    if (!hasPermission($permission)) {
+        if (isAjaxRequest()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied: Missing permission ' . $permission]);
+            exit;
+        }
+        flashMessage('You do not have permission to access this page.', 'error');
+        redirect(APP_URL . '');
+    }
+}
+
+/**
  * Check if request is AJAX
  */
 function isAjaxRequest(): bool {

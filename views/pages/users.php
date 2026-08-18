@@ -43,6 +43,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 </tbody>
             </table>
         </div>
+        <div id="usersPagination" class="pagination"></div>
     </div>
 </div>
 
@@ -95,18 +96,49 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 
+<!-- Permissions Modal -->
+<div class="modal" id="permissionsModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Manage Permissions: <span id="permUserName"></span></h3>
+        <button class="modal-close" onclick="closeModal('permissionsModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body" id="permissionsBody" style="padding: 0;">
+        <!-- Checkboxes populated here -->
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeModal('permissionsModal')">Done</button>
+    </div>
+</div>
+
 <script>
 const currentUserId = <?= getCurrentUserId() ?>;
+let usersPage = 1;
+
+const availablePermissions = [
+    { id: 'manage_users', label: 'Manage Users' },
+    { id: 'manage_products', label: 'Manage Products' },
+    { id: 'manage_stock', label: 'Manage Stock' },
+    { id: 'manage_sales', label: 'Manage Sales' },
+    { id: 'view_reports', label: 'View Reports' }
+];
 
 document.addEventListener('DOMContentLoaded', loadUsers);
 
 async function loadUsers() {
     try {
-        const data = await apiRequest('/api/users');
+        const data = await apiRequest(`/api/users?page=${usersPage}`);
         renderUsers(data.data || []);
+        if (typeof renderPagination === 'function') {
+            renderPagination(document.getElementById('usersPagination'), data.page, data.total_pages, usersGoPage);
+        }
     } catch (e) {
         showToast('Failed to load users', 'error');
     }
+}
+
+function usersGoPage(p) {
+    usersPage = p;
+    loadUsers();
 }
 
 function renderUsers(users) {
@@ -129,10 +161,11 @@ function renderUsers(users) {
             <td class="text-muted">${new Date(u.created_at).toLocaleDateString()}</td>
             <td>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='event.stopPropagation(); editUser(${JSON.stringify(u)})'>
-                        <i data-lucide="pencil" style="width:15px;height:15px;"></i>
-                    </button>
+
                     ${u.id != currentUserId ? `
+                    <button class="btn btn-ghost btn-icon sm" title="Permissions" onclick="event.stopPropagation(); openPermissionsModal(${u.id}, '${escapeHtml(u.full_name)}', '${escapeHtml(u.role)}', ${u.permissions ? `'${escapeHtml(u.permissions)}'` : 'null'})">
+                        <i data-lucide="key" style="width:15px;height:15px;color:var(--accent-violet);"></i>
+                    </button>
                     <button class="btn btn-ghost btn-icon sm" title="Toggle Status" onclick="event.stopPropagation(); toggleUserStatus(${u.id}, '${u.status}')">
                         <i data-lucide="${u.status === 'active' ? 'user-x' : 'user-check'}" style="width:15px;height:15px;color:${u.status === 'active' ? 'var(--accent-amber)' : 'var(--accent-emerald)'};"></i>
                     </button>
@@ -224,6 +257,51 @@ async function deleteUser(id, name) {
         loadUsers();
     } catch (e) {
         showToast(e.message || 'Failed to delete user', 'error');
+    }
+}
+
+function openPermissionsModal(id, name, role, permsString) {
+    document.getElementById('permUserName').textContent = name;
+    const container = document.getElementById('permissionsBody');
+    
+    if (role === 'admin') {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Admin users have all permissions by default.</div>';
+        openModal('permissionsModal');
+        return;
+    }
+    
+    let perms = [];
+    try {
+        perms = permsString ? JSON.parse(permsString) : [];
+        if (!Array.isArray(perms)) perms = [];
+    } catch (e) {
+        perms = [];
+    }
+    
+    container.innerHTML = availablePermissions.map(p => `
+        <label class="d-flex align-center gap-2" style="padding:15px 20px; border-bottom:1px solid var(--border-color); cursor:pointer;">
+            <input type="checkbox" value="${p.id}" onchange="updatePermissions(${id})" ${perms.includes(p.id) ? 'checked' : ''} style="width:18px;height:18px;">
+            <span style="font-weight:500;">${p.label}</span>
+        </label>
+    `).join('');
+    
+    openModal('permissionsModal');
+}
+
+async function updatePermissions(userId) {
+    const checkboxes = document.querySelectorAll('#permissionsBody input[type="checkbox"]:checked');
+    const newPerms = Array.from(checkboxes).map(cb => cb.value);
+    
+    try {
+        await apiRequest(`/api/users?id=${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ permissions: newPerms })
+        });
+        showToast('Permissions updated');
+        // Refresh the underlying table so the modal gets the updated permissions next time it's opened
+        loadUsers();
+    } catch (e) {
+        showToast(e.message || 'Failed to update permissions', 'error');
     }
 }
 </script>

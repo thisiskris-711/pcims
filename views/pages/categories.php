@@ -86,6 +86,25 @@ window.CAN_EDIT = <?= hasRole(ROLE_ADMIN, ROLE_MANAGER) ? 'true' : 'false' ?>;
     </div>
 </div>
 
+<!-- Delete Category Modal -->
+<div class="modal" id="deleteCategoryModal">
+    <div class="modal-header">
+        <h3 class="modal-title" style="color:var(--accent-rose);">Delete Category</h3>
+        <button class="modal-close" onclick="closeModal('deleteCategoryModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body">
+        <p>Are you sure you want to delete the category "<strong id="deleteCategoryName"></strong>"?</p>
+        <p class="text-muted" style="margin-top:8px; font-size:0.85rem;">Products in this category will become uncategorized. This action cannot be undone.</p>
+        <input type="hidden" id="deleteCategoryId" value="">
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('deleteCategoryModal')">Cancel</button>
+        <button class="btn btn-danger" style="background-color:var(--accent-rose); border-color:var(--accent-rose); color:white;" onclick="confirmDeleteCategory()">
+            <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Delete
+        </button>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', loadCategories);
 
@@ -121,9 +140,7 @@ function renderCategories(cats) {
             ${window.CAN_EDIT ? `
             <td>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-ghost btn-icon sm" title="Edit" onclick='event.stopPropagation(); editCategory(${JSON.stringify(c).replace(/'/g, "&apos;")})'>
-                        <i data-lucide="pencil" style="width:15px;height:15px;"></i>
-                    </button>
+
                     <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="event.stopPropagation(); deleteCategory(${c.id}, '${escapeHtml(c.name)}')">
                         <i data-lucide="trash-2" style="width:15px;height:15px;color:var(--accent-rose);"></i>
                     </button>
@@ -173,14 +190,22 @@ async function saveCategory(e) {
     }
 }
 
-async function deleteCategory(id, name) {
-    if (!confirm(`Delete category "${name}"? Products will become uncategorized.`)) return;
+function deleteCategory(id, name) {
+    document.getElementById('deleteCategoryId').value = id;
+    document.getElementById('deleteCategoryName').textContent = name;
+    openModal('deleteCategoryModal');
+}
+
+async function confirmDeleteCategory() {
+    const id = document.getElementById('deleteCategoryId').value;
     try {
         await apiRequest(`/api/categories?id=${id}`, { method: 'DELETE' });
         showToast('Category deleted');
+        closeModal('deleteCategoryModal');
         loadCategories();
     } catch (e) {
         showToast(e.message || 'Failed to delete', 'error');
+        closeModal('deleteCategoryModal');
     }
 }
 </script>

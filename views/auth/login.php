@@ -81,17 +81,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
                 
                 <form method="POST" class="login-form" id="loginForm">
-                    <div class="form-group">
-                        <label class="form-label" for="username">Username</label>
+                    <div class="form-group form-floating">
                         <input type="text" class="form-control" id="username" name="username" 
-                               placeholder="Enter your username" autocomplete="username"
+                               placeholder="Username" autocomplete="username"
                                value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required autofocus>
+                        <label class="form-label" for="username">Username</label>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label" for="password">Password</label>
+                    <div class="form-group form-floating" style="position: relative;">
                         <input type="password" class="form-control" id="password" name="password" 
-                               placeholder="Enter your password" autocomplete="current-password" required>
+                               placeholder="Password" autocomplete="current-password" required style="padding-right: 40px;">
+                        <label class="form-label" for="password">Password</label>
+                        <button type="button" id="togglePassword" class="password-toggle" tabindex="-1" title="Toggle password visibility">
+                            <i data-lucide="eye-off" style="width:20px;height:20px;"></i>
+                        </button>
                     </div>
                     
                     <button type="submit" class="btn btn-primary login-btn" id="loginBtn">
@@ -115,6 +118,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;border-width:2px;"></span> Signing in...';
         });
+        
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Lucide replaces <i> with <svg>, so we reset the innerHTML to a fresh <i> tag
+                if (type === 'password') {
+                    this.innerHTML = '<i data-lucide="eye-off" style="width:20px;height:20px;"></i>';
+                } else {
+                    this.innerHTML = '<i data-lucide="eye" style="width:20px;height:20px;"></i>';
+                }
+                
+                // Re-initialize lucide icons
+                lucide.createIcons();
+            });
+        }
     </script>
 </body>
 </html>

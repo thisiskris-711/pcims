@@ -12,14 +12,16 @@ $dateFrom = $_GET['date_from'] ?? date('Y-m-01');
 $dateTo = $_GET['date_to'] ?? date('Y-m-d');
 $export = $_GET['export'] ?? '';
 
-switch ($action) {
+try {
+    switch ($action) {
     case 'sales':
         $stmt = $db->prepare("
-            SELECT s.invoice_no, s.customer_name, s.subtotal, s.discount, s.tax, s.total,
+            SELECT s.invoice_no, COALESCE(d.name, 'Walk-in Customer') as customer_name, s.subtotal, s.discount, s.tax, s.total,
                    s.payment_method, s.payment_status, s.created_at, u.full_name as cashier,
                    (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as item_count
             FROM sales s
             LEFT JOIN users u ON s.created_by = u.id
+            LEFT JOIN dealers d ON s.dealer_id = d.id
             WHERE DATE(s.created_at) BETWEEN ? AND ?
             ORDER BY s.created_at DESC
         ");
@@ -91,25 +93,36 @@ switch ($action) {
         break;
         
     case 'low_stock':
-        $data = $db->query("
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
+        $offset = ($page - 1) * $perPage;
+        
+        $baseQuery = "
             SELECT p.sku, p.name, c.name as category, p.quantity, p.low_stock_threshold,
                    (p.low_stock_threshold - p.quantity) as deficit, p.cost_price, p.selling_price
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
             WHERE p.status = 'active' AND p.quantity <= p.low_stock_threshold
-            ORDER BY p.quantity ASC
-        ")->fetchAll();
+        ";
         
         if ($export === 'csv') {
+            $data = $db->query($baseQuery . " ORDER BY p.quantity ASC")->fetchAll();
             exportCSV('low_stock_report', ['SKU', 'Product', 'Category', 'Stock', 'Threshold', 'Deficit', 'Cost', 'Price'], $data,
                 fn($r) => [$r['sku'], $r['name'], $r['category'], $r['quantity'], $r['low_stock_threshold'], $r['deficit'], $r['cost_price'], $r['selling_price']]);
+        } else {
+            $count = (int)$db->query("SELECT COUNT(*) FROM products p WHERE p.status = 'active' AND p.quantity <= p.low_stock_threshold")->fetchColumn();
+            $totalPages = max(1, ceil($count / $perPage));
+            $data = $db->query($baseQuery . " ORDER BY p.quantity ASC LIMIT $perPage OFFSET $offset")->fetchAll();
+            jsonResponse(['data' => $data, 'page' => $page, 'total_pages' => $totalPages, 'total' => $count]);
         }
-        
-        jsonResponse(['data' => $data]);
         break;
         
     case 'forecast':
-        $data = $db->query("
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
+        $offset = ($page - 1) * $perPage;
+
+        $baseQuery = "
             SELECT 
                 p.sku, 
                 p.name, 
@@ -133,19 +146,27 @@ switch ($action) {
             LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
             WHERE p.status = 'active'
             GROUP BY p.id
-            ORDER BY days_remaining ASC, recent_sales DESC
-        ")->fetchAll();
+        ";
         
+        $orderClause = " ORDER BY days_remaining ASC, recent_sales DESC";
+
         if ($export === 'csv') {
+            $data = $db->query($baseQuery . $orderClause)->fetchAll();
             exportCSV('predictive_forecast_report', ['SKU', 'Product', 'Category', 'Current Stock', '30-Day Sales', 'Avg Daily Sales', 'Est. Days Remaining', 'Suggested Reorder'], $data,
                 fn($r) => [$r['sku'], $r['name'], $r['category'], $r['quantity'], $r['recent_sales'], $r['avg_daily_sales'], $r['days_remaining'] == 999 ? '999+' : $r['days_remaining'], $r['suggested_reorder']]);
+        } else {
+            $count = (int)$db->query("SELECT COUNT(*) FROM products WHERE status = 'active'")->fetchColumn();
+            $totalPages = max(1, ceil($count / $perPage));
+            $data = $db->query($baseQuery . $orderClause . " LIMIT $perPage OFFSET $offset")->fetchAll();
+            jsonResponse(['data' => $data, 'page' => $page, 'total_pages' => $totalPages, 'total' => $count]);
         }
-        
-        jsonResponse(['data' => $data]);
         break;
         
     default:
         jsonResponse(['error' => 'Invalid report type'], 400);
+    }
+} catch (Exception $e) {
+    jsonResponse(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
 }
 
 /**

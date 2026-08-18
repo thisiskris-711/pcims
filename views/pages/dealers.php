@@ -47,8 +47,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <thead>
                     <tr>
                         <th>Code</th>
-                        <th>Dealer</th>
-                        <th>Contact</th>
+                        <th>Dealer Name</th>
                         <th>Phone</th>
                         <th>Credit Limit</th>
                         <th>Outstanding</th>
@@ -76,15 +75,9 @@ include dirname(__DIR__) . '/layouts/header.php';
     <div class="modal-body">
         <form id="dealerForm" onsubmit="saveDealer(event)">
             <input type="hidden" id="dealerId" value="">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="dealerName">Dealer / Business Name *</label>
-                    <input type="text" class="form-control" id="dealerName" required placeholder="e.g. Metro Electronics Hub">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="contactPerson">Contact Person</label>
-                    <input type="text" class="form-control" id="contactPerson" placeholder="Primary contact name">
-                </div>
+            <div class="form-group">
+                <label class="form-label" for="dealerName">Dealer Name *</label>
+                <input type="text" class="form-control" id="dealerName" required placeholder="Full Name">
             </div>
             <div class="form-row">
                 <div class="form-group">

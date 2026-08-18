@@ -52,14 +52,14 @@ switch ($method) {
         if ($action === 'search') {
             $q = trim($_GET['q'] ?? '');
             $stmt = $db->prepare("
-                SELECT id, dealer_code, name, contact_person, phone, credit_limit, credit_balance, status
+                SELECT id, dealer_code, name, phone, credit_limit, credit_balance, status
                 FROM dealers
-                WHERE status = 'active' AND (name LIKE ? OR dealer_code LIKE ? OR contact_person LIKE ?)
+                WHERE status = 'active' AND (name LIKE ? OR dealer_code LIKE ?)
                 ORDER BY name ASC
                 LIMIT 20
             ");
             $like = "%{$q}%";
-            $stmt->execute([$like, $like, $like]);
+            $stmt->execute([$like, $like]);
             jsonResponse(['data' => $stmt->fetchAll()]);
         }
 
@@ -73,9 +73,9 @@ switch ($method) {
         $params = [];
 
         if ($search) {
-            $where .= " AND (d.name LIKE ? OR d.dealer_code LIKE ? OR d.contact_person LIKE ? OR d.phone LIKE ?)";
+            $where .= " AND (d.name LIKE ? OR d.dealer_code LIKE ? OR d.phone LIKE ?)";
             $like = "%{$search}%";
-            $params = array_merge($params, [$like, $like, $like, $like]);
+            $params = array_merge($params, [$like, $like, $like]);
         }
         if ($status) {
             $where .= " AND d.status = ?";
@@ -112,7 +112,6 @@ switch ($method) {
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
         $name = trim($input['name'] ?? '');
-        $contactPerson = trim($input['contact_person'] ?? '');
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
@@ -140,10 +139,10 @@ switch ($method) {
         }
 
         $stmt = $db->prepare("
-            INSERT INTO dealers (dealer_code, name, contact_person, email, phone, address, credit_limit, notes, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO dealers (dealer_code, name, email, phone, address, credit_limit, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$dealerCode, $name, $contactPerson, $email, $phone, $address, $creditLimit, $notes, getCurrentUserId()]);
+        $stmt->execute([$dealerCode, $name, $email, $phone, $address, $creditLimit, $notes, getCurrentUserId()]);
 
         jsonResponse(['success' => true, 'message' => 'Dealer registered', 'id' => $db->lastInsertId(), 'dealer_code' => $dealerCode]);
         break;
@@ -156,7 +155,6 @@ switch ($method) {
         $input = json_decode(file_get_contents('php://input'), true);
 
         $name = trim($input['name'] ?? '');
-        $contactPerson = trim($input['contact_person'] ?? '');
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
@@ -182,10 +180,10 @@ switch ($method) {
         }
 
         $stmt = $db->prepare("
-            UPDATE dealers SET name=?, contact_person=?, email=?, phone=?, address=?, credit_limit=?, status=?, notes=?
+            UPDATE dealers SET name=?, email=?, phone=?, address=?, credit_limit=?, status=?, notes=?
             WHERE id=?
         ");
-        $stmt->execute([$name, $contactPerson, $email, $phone, $address, $creditLimit, $status, $notes, $id]);
+        $stmt->execute([$name, $email, $phone, $address, $creditLimit, $status, $notes, $id]);
 
         jsonResponse(['success' => true, 'message' => 'Dealer updated']);
         break;

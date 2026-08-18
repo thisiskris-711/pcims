@@ -14,7 +14,7 @@ define('APP_URL', $_ENV['APP_URL'] ?? getenv('APP_URL') ?: '/antigravitytest');
 
 // File paths
 define('ROOT_PATH', dirname(__DIR__));
-define('UPLOAD_DIR', ROOT_PATH . '/uploads/products/');
+define('UPLOAD_DIR', ROOT_PATH . '/public/uploads/products/');
 define('UPLOAD_URL', APP_URL . '/uploads/products/');
 
 // Pagination

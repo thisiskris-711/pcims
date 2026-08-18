@@ -60,7 +60,7 @@ include dirname(__DIR__) . '/layouts/header.php';
 
 <!-- KPI Stats -->
 <div class="stats-grid">
-    <div class="stat-card violet">
+    <div class="stat-card blue">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="box" style="width:22px;height:22px;"></i>
@@ -96,7 +96,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="stat-label">Today's Sales (<?= $totalSalesCount ?> orders)</div>
     </div>
     
-    <div class="stat-card <?= $lowStockCount > 0 ? 'rose' : 'amber' ?>">
+    <div class="stat-card rose">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="alert-triangle" style="width:22px;height:22px;"></i>
@@ -143,7 +143,7 @@ include dirname(__DIR__) . '/layouts/header.php';
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">
-                <i data-lucide="alert-triangle" style="width:18px;height:18px;color:var(--accent-amber);vertical-align:middle;margin-right:6px;"></i>
+                <i data-lucide="alert-triangle" style="width:18px;height:18px;color:var(--accent-primary);vertical-align:middle;margin-right:6px;"></i>
                 Low Stock Products
             </h3>
             <?php if ($lowStockCount > 0): ?>
@@ -153,7 +153,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="card-body">
             <?php if (empty($lowStockProducts)): ?>
                 <div class="empty-state" style="padding:30px;">
-                    <i data-lucide="check-circle" style="width:40px;height:40px;color:var(--accent-emerald);"></i>
+                    <i data-lucide="check-circle" style="width:40px;height:40px;color:var(--accent-primary);"></i>
                     <h3>All Stocked Up!</h3>
                     <p>No products are below their low stock threshold.</p>
                 </div>
@@ -172,7 +172,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                             <tr>
                                 <td>
                                     <div class="d-flex align-center gap-1">
-                                        <span class="color-dot" style="background:<?= sanitize($p['category_color'] ?? '#8b5cf6') ?>"></span>
+                                        <span class="color-dot" style="background:<?= sanitize($p['category_color'] ?? '#9A0002') ?>"></span>
                                         <div>
                                             <div class="font-bold" style="font-size:0.85rem;"><?= sanitize($p['name']) ?></div>
                                             <div class="text-muted" style="font-size:0.75rem;"><?= sanitize($p['sku']) ?></div>

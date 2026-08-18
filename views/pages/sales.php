@@ -126,16 +126,7 @@ function renderSales(response) {
     
     lucide.createIcons({ nodes: [tbody] });
     
-    // Pagination
-    const { page, total_pages } = response;
-    const pagEl = document.getElementById('salesPagination');
-    if (total_pages <= 1) { pagEl.innerHTML = ''; return; }
-    let html = `<a class="${page<=1?'disabled':''}" onclick="salesGoPage(${page-1})">&laquo;</a>`;
-    for (let i = Math.max(1,page-2); i <= Math.min(total_pages,page+2); i++) {
-        html += `<a class="${i===page?'active':''}" onclick="salesGoPage(${i})">${i}</a>`;
-    }
-    html += `<a class="${page>=total_pages?'disabled':''}" onclick="salesGoPage(${page+1})">&raquo;</a>`;
-    pagEl.innerHTML = html;
+    renderPagination(document.getElementById('salesPagination'), response.page, response.total_pages, salesGoPage);
 }
 
 function salesGoPage(p) { salesPage = p; loadSales(); }

@@ -62,11 +62,40 @@ switch ($method) {
             LEFT JOIN categories c ON p.category_id = c.id 
             LEFT JOIN users u ON p.created_by = u.id
             WHERE $where
-            ORDER BY p.created_at DESC
+            ORDER BY p.name ASC
             LIMIT $perPage OFFSET $offset
         ");
         $stmt->execute($params);
         $products = $stmt->fetchAll();
+        
+        // Dynamically calculate stock for bundles
+        foreach ($products as &$p) {
+            if (isset($p['type']) && $p['type'] === 'bundle') {
+                $compStmt = $db->prepare("
+                    SELECT pbi.quantity as required_qty, cp.quantity as available_qty
+                    FROM product_bundle_items pbi
+                    JOIN products cp ON pbi.product_id = cp.id
+                    WHERE pbi.bundle_id = ?
+                ");
+                $compStmt->execute([$p['id']]);
+                $components = $compStmt->fetchAll();
+                
+                $maxBundles = null;
+                foreach ($components as $c) {
+                    $possible = floor($c['available_qty'] / $c['required_qty']);
+                    if ($maxBundles === null || $possible < $maxBundles) {
+                        $maxBundles = $possible;
+                    }
+                }
+                $p['quantity'] = $maxBundles ?? 0;
+                
+                // Fetch components to return if requested or for general info
+                if (isset($_GET['action']) && $_GET['action'] === 'detail') {
+                     $p['components'] = $components; // We could enrich this with names if needed
+                }
+            }
+        }
+        unset($p);
         
         jsonResponse([
             'data' => $products,
