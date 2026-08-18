@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close sidebar on overlay click (mobile)
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
-            if (!sidebar.contains(e.target) && e.target !== menuToggle) {
+            if (!sidebar.contains(e.target) && (!menuToggle || !menuToggle.contains(e.target))) {
                 sidebar.classList.remove('open');
             }
         }

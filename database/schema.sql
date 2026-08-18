@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS `sales` (
   `discount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `tax` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `total` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-  `payment_method` ENUM('cash','card','transfer','other') NOT NULL DEFAULT 'cash',
+  `payment_method` ENUM('cash','credit','cash&credit') NOT NULL DEFAULT 'cash',
   `payment_status` ENUM('paid','pending','refunded') NOT NULL DEFAULT 'paid',
   `notes` TEXT DEFAULT NULL,
   `created_by` INT UNSIGNED DEFAULT NULL,

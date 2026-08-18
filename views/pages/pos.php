@@ -111,9 +111,8 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <label class="form-label" for="paymentMethod">Payment Method</label>
                 <select class="form-control" id="paymentMethod">
                     <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="transfer">Transfer</option>
-                    <option value="other">Other</option>
+                    <option value="credit">Credit</option>
+                    <option value="cash&credit">Cash & Credit</option>
                 </select>
             </div>
             <div class="form-group">

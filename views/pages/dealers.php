@@ -16,8 +16,14 @@ $pageScripts = ['dealers.js'];
 include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
+<!-- Tabs -->
+<div class="tabs-container" style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+    <button class="btn tab-btn active" id="tabDealers" onclick="switchTab('dealers')" style="background: none; border: none; padding: 10px 20px; border-bottom: 2px solid var(--primary-color); font-weight: 600;">Dealers</button>
+    <button class="btn tab-btn" id="tabApplications" onclick="switchTab('applications')" style="background: none; border: none; padding: 10px 20px; color: var(--text-muted); font-weight: 500;">Pending Applications</button>
+</div>
+
 <!-- Toolbar -->
-<div class="toolbar">
+<div class="toolbar" id="toolbarDealers">
     <div class="toolbar-left">
         <div class="search-bar">
             <span class="search-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></span>
@@ -32,15 +38,16 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
     <div class="toolbar-right">
         <?php if ($canEdit): ?>
-        <button class="btn btn-primary" onclick="openDealerModal()">
+        <button class="btn btn-primary" onclick="openAddDealerModal()">
             <i data-lucide="user-plus" style="width:18px;height:18px;"></i> Add Dealer
         </button>
         <?php endif; ?>
     </div>
 </div>
 
+
 <!-- Dealers Table -->
-<div class="card">
+<div class="card" id="cardDealers">
     <div class="card-body" style="padding-top:16px;">
         <div class="table-wrapper">
             <table>
@@ -65,8 +72,141 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 
+<!-- Applications Table -->
+<div class="card" id="cardApplications" style="display:none;">
+    <div class="card-body" style="padding-top:16px;">
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Applicant Name</th>
+                        <th>Phone</th>
+                        <th>Branch</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                        <th style="width:140px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="applicationsBody">
+                    <tr><td colspan="7" class="text-center text-muted" style="padding:40px;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="pagination" id="applicationsPagination"></div>
+    </div>
+</div>
+
 <?php if ($canEdit): ?>
-<!-- Add/Edit Dealer Modal -->
+<!-- Add Dealer Modal (Detailed) -->
+<div class="modal modal-lg" id="addDealerModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Add Dealer (Application)</h3>
+        <button class="modal-close" onclick="closeModal('addDealerModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body" style="background:#f9fafb;">
+        <form id="addDealerForm" onsubmit="submitAddDealer(event)">
+            <h4 style="margin-top:0;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Personal Information</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">First Name *</label>
+                    <input type="text" class="form-control" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Middle Name</label>
+                    <input type="text" class="form-control" name="middle_name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Last Name *</label>
+                    <input type="text" class="form-control" name="last_name" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Mobile Number *</label>
+                    <input type="tel" class="form-control" name="phone" required maxlength="11">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-control" name="email">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">House No. / Street</label>
+                <input type="text" class="form-control" name="address1">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Region</label>
+                    <input type="text" class="form-control" name="region">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Province</label>
+                    <input type="text" class="form-control" name="province">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">City / Municipality</label>
+                    <input type="text" class="form-control" name="city">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Barangay</label>
+                    <input type="text" class="form-control" name="barangay">
+                </div>
+            </div>
+
+            <h4 style="margin-top:20px;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Other Details</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Preferred Branch</label>
+                    <input type="text" class="form-control" name="preferred_branch">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Source</label>
+                    <select class="form-control" name="source">
+                        <option value="">Select Source...</option>
+                        <option value="Facebook">Facebook</option>
+                        <option value="Friend/Family">Friend/Family</option>
+                        <option value="Branch Walk-in">Branch Walk-in</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4 style="margin-top:20px;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Recruiter Details</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Recruiter's ID</label>
+                    <input type="text" class="form-control" name="recruiter_id">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Recruiter's Name</label>
+                    <input type="text" class="form-control" name="recruiter_name">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Recruiter's Mobile No.</label>
+                    <input type="tel" class="form-control" name="recruiter_phone">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Recruiter's FB Profile</label>
+                    <input type="text" class="form-control" name="recruiter_fb">
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('addDealerModal')">Cancel</button>
+        <button class="btn btn-success" style="background:var(--accent-primary);color:white;border:none;" onclick="document.getElementById('addDealerForm').requestSubmit()">
+            <i data-lucide="check" style="width:16px;height:16px;"></i> Add Dealer
+        </button>
+    </div>
+</div>
+
+<!-- Edit Dealer Modal -->
 <div class="modal modal-lg" id="dealerModal">
     <div class="modal-header">
         <h3 class="modal-title" id="dealerModalTitle">Add Dealer</h3>
@@ -163,6 +303,20 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
+    </div>
+</div>
+
+<!-- Application Detail Modal -->
+<div class="modal modal-lg" id="applicationModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Application Details</h3>
+        <button class="modal-close" onclick="closeModal('applicationModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body" id="applicationModalBody">
+        <div class="text-center text-muted" style="padding:40px;">Loading...</div>
+    </div>
+    <div class="modal-footer" id="applicationModalFooter">
+        <button class="btn btn-secondary" onclick="closeModal('applicationModal')">Close</button>
     </div>
 </div>
 

@@ -78,6 +78,10 @@ switch ($route) {
         require dirname(__DIR__) . '/views/pages/dealers.php';
         break;
         
+    case '/dealer-application':
+        require dirname(__DIR__) . '/views/pages/dealer_application_form.php';
+        break;
+        
     case '/suppliers':
         require dirname(__DIR__) . '/views/pages/suppliers.php';
         break;
@@ -125,6 +129,10 @@ switch ($route) {
 
     case '/api/dealers':
         require dirname(__DIR__) . '/src/Api/dealers.php';
+        break;
+        
+    case '/api/dealer_applications':
+        require dirname(__DIR__) . '/src/Api/dealer_applications.php';
         break;
         
     case '/api/suppliers':

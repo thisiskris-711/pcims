@@ -78,6 +78,31 @@ function renderDealers(dealers) {
     lucide.createIcons();
 }
 
+function openAddDealerModal() {
+    document.getElementById('addDealerForm').reset();
+    openModal('addDealerModal');
+    lucide.createIcons();
+}
+
+async function submitAddDealer(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await apiRequest('/api/dealer_applications?action=add_and_approve', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        showToast(res.message, 'success');
+        closeModal('addDealerModal');
+        loadDealers(currentDealersPage);
+    } catch (e) {
+        showToast(e.message || 'Failed to add dealer', 'error');
+    }
+}
+
 function openDealerModal(id = null) {
     document.getElementById('dealerForm').reset();
     document.getElementById('dealerId').value = '';
@@ -283,5 +308,163 @@ async function viewDealer(id) {
         lucide.createIcons();
     } catch (e) {
         body.innerHTML = '<div class="text-center" style="color:var(--error-color);padding:40px;">Failed to load dealer details</div>';
+    }
+}
+
+// ============================================
+// Dealer Applications Management
+// ============================================
+let currentApplicationPage = 1;
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'border-primary', 'font-semibold'));
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.style.borderBottom = 'none';
+        btn.style.color = 'var(--text-muted)';
+        btn.style.fontWeight = '500';
+    });
+
+    if (tab === 'dealers') {
+        const btn = document.getElementById('tabDealers');
+        btn.classList.add('active');
+        btn.style.borderBottom = '2px solid var(--primary-color)';
+        btn.style.color = 'inherit';
+        btn.style.fontWeight = '600';
+        
+        document.getElementById('cardDealers').style.display = 'block';
+        document.getElementById('toolbarDealers').style.display = 'flex';
+        document.getElementById('cardApplications').style.display = 'none';
+        loadDealers(1);
+    } else {
+        const btn = document.getElementById('tabApplications');
+        btn.classList.add('active');
+        btn.style.borderBottom = '2px solid var(--primary-color)';
+        btn.style.color = 'inherit';
+        btn.style.fontWeight = '600';
+
+        document.getElementById('cardDealers').style.display = 'none';
+        document.getElementById('toolbarDealers').style.display = 'none';
+        document.getElementById('cardApplications').style.display = 'block';
+        loadApplications(1);
+    }
+}
+
+async function loadApplications(page = 1) {
+    currentApplicationPage = page;
+    const params = new URLSearchParams({ status: 'pending', page, per_page: 15 });
+
+    try {
+        const data = await apiRequest(`/api/dealer_applications?${params}`);
+        renderApplications(data.data || []);
+        renderPagination(document.getElementById('applicationsPagination'), data.page, data.total_pages, loadApplications);
+    } catch (e) {
+        showToast('Failed to load applications', 'error');
+    }
+}
+
+function renderApplications(apps) {
+    const tbody = document.getElementById('applicationsBody');
+
+    if (apps.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:40px;">No pending applications</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = apps.map(a => {
+        const name = `${a.first_name} ${a.last_name}`;
+        let actions = `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewApplication(${a.id})" title="View Details">Review</button>`;
+        
+        return `<tr class="clickable-row" onclick="viewApplication(${a.id})">
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td style="font-weight:500;">${escapeHtml(name)}</td>
+            <td>${escapeHtml(a.phone)}</td>
+            <td>${escapeHtml(a.preferred_branch || '—')}</td>
+            <td>${escapeHtml(a.source || '—')}</td>
+            <td><span class="status-badge" style="color:var(--warning-color);background:var(--warning-color)15;">Pending</span></td>
+            <td>${actions}</td>
+        </tr>`;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+async function viewApplication(id) {
+    const body = document.getElementById('applicationModalBody');
+    const footer = document.getElementById('applicationModalFooter');
+    
+    body.innerHTML = '<div class="text-center text-muted" style="padding:40px;"><span class="spinner"></span> Loading...</div>';
+    footer.innerHTML = '<button class="btn btn-secondary" onclick="closeModal(\'applicationModal\')">Close</button>';
+    openModal('applicationModal');
+
+    try {
+        const data = await apiRequest(`/api/dealer_applications?status=pending`);
+        const app = data.data.find(a => a.id === id);
+        
+        if (!app) throw new Error('Application not found');
+
+        body.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+                <div>
+                    <h4 style="margin:0 0 10px 0;border-bottom:1px solid #eee;padding-bottom:5px;">Personal Info</h4>
+                    <p><strong>Name:</strong> ${escapeHtml(app.first_name)} ${escapeHtml(app.middle_name || '')} ${escapeHtml(app.last_name)}</p>
+                    <p><strong>Phone:</strong> ${escapeHtml(app.phone)}</p>
+                    <p><strong>Email:</strong> ${escapeHtml(app.email || '—')}</p>
+                    <p><strong>Address:</strong> ${escapeHtml(app.address1 || '')}, ${escapeHtml(app.barangay || '')}, ${escapeHtml(app.city || '')}, ${escapeHtml(app.province || '')}</p>
+                </div>
+                <div>
+                    <h4 style="margin:0 0 10px 0;border-bottom:1px solid #eee;padding-bottom:5px;">Application Details</h4>
+                    <p><strong>Date:</strong> ${new Date(app.created_at).toLocaleString()}</p>
+                    <p><strong>Branch:</strong> ${escapeHtml(app.preferred_branch || '—')}</p>
+                    <p><strong>Source:</strong> ${escapeHtml(app.source || '—')}</p>
+                </div>
+            </div>
+            <div>
+                <h4 style="margin:0 0 10px 0;border-bottom:1px solid #eee;padding-bottom:5px;">Recruiter Info</h4>
+                <p><strong>Recruiter ID:</strong> ${escapeHtml(app.recruiter_id || '—')}</p>
+                <p><strong>Name:</strong> ${escapeHtml(app.recruiter_name || '—')}</p>
+                <p><strong>Phone:</strong> ${escapeHtml(app.recruiter_phone || '—')}</p>
+                <p><strong>Facebook:</strong> ${escapeHtml(app.recruiter_fb || '—')}</p>
+            </div>
+        `;
+        
+        footer.innerHTML = `
+            <button class="btn btn-danger" style="margin-right:auto;background:var(--accent-rose);color:white;border:none;" onclick="rejectApplication(${app.id})">Reject</button>
+            <button class="btn btn-secondary" onclick="closeModal('applicationModal')">Cancel</button>
+            <button class="btn btn-success" style="background:var(--accent-emerald);color:white;border:none;" onclick="approveApplication(${app.id})">Approve as Dealer</button>
+        `;
+    } catch (e) {
+        body.innerHTML = '<div class="text-center" style="color:var(--error-color);padding:40px;">Failed to load application</div>';
+    }
+}
+
+async function approveApplication(id) {
+    if (!confirm('Approve this application and create a new dealer?')) return;
+    
+    try {
+        const res = await apiRequest('/api/dealer_applications?action=approve', {
+            method: 'POST',
+            body: JSON.stringify({ id })
+        });
+        showToast(res.message, 'success');
+        closeModal('applicationModal');
+        loadApplications(currentApplicationPage);
+    } catch (e) {
+        showToast(e.message || 'Failed to approve', 'error');
+    }
+}
+
+async function rejectApplication(id) {
+    if (!confirm('Are you sure you want to reject this application?')) return;
+    
+    try {
+        const res = await apiRequest('/api/dealer_applications?action=reject', {
+            method: 'POST',
+            body: JSON.stringify({ id })
+        });
+        showToast(res.message, 'success');
+        closeModal('applicationModal');
+        loadApplications(currentApplicationPage);
+    } catch (e) {
+        showToast(e.message || 'Failed to reject', 'error');
     }
 }
