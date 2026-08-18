@@ -1892,6 +1892,24 @@ textarea.form-control {
     color: #7a0002 !important;
     border-color: #f8f9fa !important;
     transform: translateY(-1px);
+    cursor: pointer;
+}
+
+.login-btn-secondary {
+    width: 100%;
+    padding: 14px;
+    font-size: 1rem;
+    margin-top: 8px;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: var(--border-radius-sm);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.login-btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 .login-error {
@@ -1902,6 +1920,11 @@ textarea.form-control {
     padding: 10px;
     background: rgba(244, 63, 94, 0.08);
     border-radius: var(--border-radius-sm);
+}
+
+.login-card .login-error {
+    color: #ffcccc !important;
+    background: rgba(255, 0, 0, 0.2);
 }
 
 /* ── Profile Page ── */

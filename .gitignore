@@ -11,3 +11,6 @@ Thumbs.db
 # User uploaded files
 uploads/products/*
 !uploads/products/.gitkeep
+
+# Composer dependencies
+vendor/

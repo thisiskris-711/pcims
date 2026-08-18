@@ -10,40 +10,62 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $error = '';
+$unverified = false;
+$unverified_username = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Strict rate limiting: Max 5 login attempts per 5 minutes (300 seconds)
-    enforceRateLimit('login', 5, 300);
-
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-    
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password.';
-    } else {
+    if (isset($_POST['action']) && $_POST['action'] === 'resend_verification') {
+        enforceRateLimit('resend_verify', 3, 300);
+        $username = trim($_POST['username'] ?? '');
         $db = getDB();
-        $stmt = $db->prepare("SELECT * FROM users WHERE username = ? AND status = 'active' LIMIT 1");
+        $stmt = $db->prepare("SELECT email, email_verified_at FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
-        
-        if ($user && password_verify($password, $user['password_hash'])) {
-            // Set session
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['full_name'] = $user['full_name'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['avatar'] = $user['avatar'];
-            $_SESSION['login_time'] = time();
-            
-            // Update last login
-            $stmt = $db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
-            $stmt->execute([$user['id']]);
-            
-            session_regenerate_id(true);
-            header('Location: ' . APP_URL . '');
-            exit;
+        if ($user && empty($user['email_verified_at'])) {
+            $token = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            $db->prepare("UPDATE users SET email_verification_token = ? WHERE username = ?")->execute([$token, $username]);
+            $verifyLink = 'http://' . $_SERVER['HTTP_HOST'] . APP_URL . "/verify-email";
+            sendEmail($user['email'], 'Verify Your Email Address', "Your email verification PIN is: <strong>$token</strong><br><br>Please enter this PIN on the verification page: <a href='$verifyLink'>$verifyLink</a>");
+            $error = "Verification email sent. Please check your inbox.";
         } else {
-            $error = 'Invalid username or password.';
+            $error = "Invalid request or email already verified.";
+        }
+    } else {
+        // Strict rate limiting: Max 5 login attempts per 5 minutes (300 seconds)
+        enforceRateLimit('login', 5, 300);
+
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        if (empty($username) || empty($password)) {
+            $error = 'Please enter both username and password.';
+        } else {
+            $result = attemptLogin($username, $password);
+            
+            if ($result['success']) {
+                header('Location: ' . APP_URL . '');
+                exit;
+            } else {
+                if (!empty($result['unverified'])) {
+                    $db = getDB();
+                    $stmt = $db->prepare("SELECT email FROM users WHERE username = ?");
+                    $stmt->execute([$username]);
+                    $userEmail = $stmt->fetchColumn();
+                    
+                    if ($userEmail) {
+                        $token = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+                        $db->prepare("UPDATE users SET email_verification_token = ? WHERE username = ?")->execute([$token, $username]);
+                        
+                        $verifyLink = 'http://' . $_SERVER['HTTP_HOST'] . APP_URL . "/verify-email";
+                        sendEmail($userEmail, 'Verify Your Email Address', "Your email verification PIN is: <strong>$token</strong><br><br>Please enter this PIN on the verification page: <a href='$verifyLink'>$verifyLink</a>");
+                    }
+                    
+                    $_SESSION['unverified_username'] = $username;
+                    header('Location: ' . APP_URL . '/verify-email');
+                    exit;
+                }
+                $error = $result['message'];
+            }
         }
     }
 }
@@ -74,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p class="login-subtitle">Sign in to manage your inventory</p>
                 
                 <?php if ($error): ?>
-                    <div class="login-error">
+                    <div class="login-error" style="margin-bottom: 20px;">
                         <i data-lucide="alert-circle" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:6px;"></i>
                         <?= htmlspecialchars($error) ?>
                     </div>
@@ -95,6 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" id="togglePassword" class="password-toggle" tabindex="-1" title="Toggle password visibility">
                             <i data-lucide="eye-off" style="width:20px;height:20px;"></i>
                         </button>
+                    </div>
+                    
+                    <div style="text-align: right; margin-bottom: 20px; margin-top: -10px;">
+                        <a href="<?= APP_URL ?>/forgot-password" style="font-size: 0.85rem; color: var(--primary-color); text-decoration: none;">Forgot Password?</a>
                     </div>
                     
                     <button type="submit" class="btn btn-primary login-btn" id="loginBtn">

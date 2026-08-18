@@ -30,10 +30,20 @@ define('ROLE_CASHIER', 'cashier');
 define('ROLE_STOCKER', 'stocker');
 define('ROLE_AUDITOR', 'auditor');
 
+// Require composer autoload
+if (file_exists(ROOT_PATH . '/vendor/autoload.php')) {
+    require_once ROOT_PATH . '/vendor/autoload.php';
+}
+
 // Session config
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.gc_maxlifetime', 900); // 15 minutes
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_strict_mode', 1);
+    ini_set('session.cookie_samesite', 'Strict');
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+    }
     session_start();
 }
 
@@ -50,6 +60,7 @@ require_once __DIR__ . '/database.php';
 require_once ROOT_PATH . '/src/Utils/helpers.php';
 require_once ROOT_PATH . '/src/Utils/auth.php';
 require_once ROOT_PATH . '/src/Utils/RateLimiter.php';
+require_once ROOT_PATH . '/src/Utils/mailer.php';
 
 // Enforce Rate Limiting for all API endpoints (max 100 requests per 60 seconds)
 if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {

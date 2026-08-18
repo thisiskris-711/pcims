@@ -57,26 +57,26 @@ include dirname(__DIR__) . '/layouts/header.php';
         <form id="userForm" onsubmit="saveUser(event)">
             <input type="hidden" id="userId" value="">
             <div class="form-group">
-                <label class="form-label">Full Name *</label>
+                <label class="form-label" for="userFullName">Full Name *</label>
                 <input type="text" class="form-control" id="userFullName" required placeholder="Full name">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Username *</label>
+                    <label class="form-label" for="userUsername">Username *</label>
                     <input type="text" class="form-control" id="userUsername" required placeholder="Username">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Email *</label>
+                    <label class="form-label" for="userEmail">Email *</label>
                     <input type="email" class="form-control" id="userEmail" required placeholder="Email address">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" id="passwordLabel">Password *</label>
+                    <label class="form-label" id="passwordLabel" for="userPassword">Password *</label>
                     <input type="password" class="form-control" id="userPassword" placeholder="Min 6 characters" minlength="6">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Role *</label>
+                    <label class="form-label" for="userRole">Role *</label>
                     <select class="form-control" id="userRole" required>
                         <option value="cashier">Cashier</option>
                         <option value="stocker">Stocker</option>

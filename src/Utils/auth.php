@@ -16,6 +16,10 @@ function attemptLogin(string $username, string $password): array {
         return ['success' => false, 'message' => 'Invalid username or password'];
     }
     
+    if (empty($user['email_verified_at'])) {
+        return ['success' => false, 'message' => 'Please verify your email address before logging in.', 'unverified' => true, 'username' => $username];
+    }
+    
     // Set session
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
@@ -53,7 +57,18 @@ function logout(): void {
  * Check if user is logged in
  */
 function isLoggedIn(): bool {
-    return isset($_SESSION['user_id']);
+    if (!isset($_SESSION['user_id'])) {
+        return false;
+    }
+    
+    // Check session timeout (15 minutes = 900 seconds)
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 900)) {
+        logout();
+        return false;
+    }
+    
+    $_SESSION['last_activity'] = time();
+    return true;
 }
 
 /**

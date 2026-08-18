@@ -52,9 +52,13 @@ switch ($method) {
         if ($check->fetch()) jsonResponse(['error' => 'Username or email already exists'], 400);
         
         $hash = password_hash($password, PASSWORD_DEFAULT);
+        $token = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
         
-        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$username, $email, $hash, $fullName, $role]);
+        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, full_name, role, email_verification_token) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$username, $email, $hash, $fullName, $role, $token]);
+        
+        $verifyLink = 'http://' . $_SERVER['HTTP_HOST'] . APP_URL . "/verify-email";
+        sendEmail($email, 'Verify Your Email Address', "Your email verification PIN is: <strong>$token</strong><br><br>Please enter this PIN on the verification page: <a href='$verifyLink'>$verifyLink</a>");
         
         jsonResponse(['success' => true, 'message' => 'User created', 'id' => $db->lastInsertId()]);
         break;
@@ -69,7 +73,17 @@ switch ($method) {
         $values = [];
         
         if (isset($input['full_name'])) { $fields[] = "full_name = ?"; $values[] = $input['full_name']; }
-        if (isset($input['email'])) { $fields[] = "email = ?"; $values[] = $input['email']; }
+        if (isset($input['email'])) { 
+            // Check for duplicate email
+            $checkEmail = $db->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
+            $checkEmail->execute([$input['email'], $id]);
+            if ($checkEmail->fetch()) {
+                jsonResponse(['error' => 'Email is already used by another user'], 400);
+            }
+            $fields[] = "email = ?"; 
+            $values[] = $input['email']; 
+        }
+        
         if (isset($input['role'])) { $fields[] = "role = ?"; $values[] = $input['role']; }
         if (isset($input['status'])) { $fields[] = "status = ?"; $values[] = $input['status']; }
         
@@ -89,10 +103,15 @@ switch ($method) {
         if (empty($fields)) jsonResponse(['error' => 'No fields to update'], 400);
         
         $values[] = $id;
-        $stmt = $db->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?");
-        $stmt->execute($values);
         
-        jsonResponse(['success' => true, 'message' => 'User updated']);
+        try {
+            $stmt = $db->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?");
+            $stmt->execute($values);
+            jsonResponse(['success' => true, 'message' => 'User updated']);
+        } catch (PDOException $e) {
+            error_log("Failed to update user: " . $e->getMessage());
+            jsonResponse(['error' => 'Database error occurred while updating user'], 500);
+        }
         break;
         
     case 'DELETE':

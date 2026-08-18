@@ -34,6 +34,18 @@ switch ($route) {
         require dirname(__DIR__) . '/src/Utils/logout.php';
         break;
         
+    case '/verify-email':
+        require dirname(__DIR__) . '/views/auth/verify_email.php';
+        break;
+        
+    case '/forgot-password':
+        require dirname(__DIR__) . '/views/auth/forgot_password.php';
+        break;
+        
+    case '/reset-password':
+        require dirname(__DIR__) . '/views/auth/reset_password.php';
+        break;
+        
     case '/pos':
         require dirname(__DIR__) . '/views/pages/pos.php';
         break;
