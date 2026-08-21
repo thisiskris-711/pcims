@@ -71,7 +71,7 @@ $flash = getFlashMessage();
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header" style="padding-top: 20px; align-items: center;">
             <div class="sidebar-logo" style="display: flex; align-items: center; gap: 10px;">
-                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNfTh_LuBglCEZy1s4gsEvMOL5sqDUhu2QSiXQZfjELMCHt7lnQfU7S1U&s=10" alt="Logo" style="height: 32px; object-fit: contain; margin-top: 2px;">
+                <img src="<?= APP_URL ?>/assets/icon.png" alt="Logo" style="height: 32px; object-fit: contain; margin-top: 2px;">
                 <span class="logo-text"><?= sanitize(APP_NAME) ?></span>
             </div>
             <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
