@@ -4,8 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER, ROLE_AUDITOR);
-
+requirePermission('manage_dealers');
 $canEdit = hasRole(ROLE_ADMIN, ROLE_MANAGER);
 $canDelete = hasRole(ROLE_ADMIN);
 $canRecordPayment = hasRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_CASHIER);
@@ -109,63 +108,63 @@ include dirname(__DIR__) . '/layouts/header.php';
             <h4 style="margin-top:0;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Personal Information</h4>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">First Name *</label>
-                    <input type="text" class="form-control" name="first_name" required>
+                    <label class="form-label" for="add_first_name">First Name *</label>
+                    <input type="text" class="form-control" id="add_first_name" name="first_name" autocomplete="given-name" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Middle Name</label>
-                    <input type="text" class="form-control" name="middle_name">
+                    <label class="form-label" for="add_middle_name">Middle Name</label>
+                    <input type="text" class="form-control" id="add_middle_name" name="middle_name" autocomplete="additional-name">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Last Name *</label>
-                    <input type="text" class="form-control" name="last_name" required>
+                    <label class="form-label" for="add_last_name">Last Name *</label>
+                    <input type="text" class="form-control" id="add_last_name" name="last_name" autocomplete="family-name" required>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Mobile Number *</label>
-                    <input type="tel" class="form-control" name="phone" required maxlength="11">
+                    <label class="form-label" for="add_phone">Mobile Number *</label>
+                    <input type="tel" class="form-control" id="add_phone" name="phone" autocomplete="tel" required maxlength="11">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Email Address</label>
-                    <input type="email" class="form-control" name="email">
+                    <label class="form-label" for="add_email">Email Address</label>
+                    <input type="email" class="form-control" id="add_email" name="email" autocomplete="email">
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">House No. / Street</label>
-                <input type="text" class="form-control" name="address1">
+                <label class="form-label" for="add_address1">House No. / Street</label>
+                <input type="text" class="form-control" id="add_address1" name="address1" autocomplete="street-address">
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Region</label>
-                    <input type="text" class="form-control" name="region">
+                    <label class="form-label" for="add_region">Region</label>
+                    <input type="text" class="form-control" id="add_region" name="region" autocomplete="address-level1">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Province</label>
-                    <input type="text" class="form-control" name="province">
+                    <label class="form-label" for="add_province">Province</label>
+                    <input type="text" class="form-control" id="add_province" name="province" autocomplete="address-level2">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">City / Municipality</label>
-                    <input type="text" class="form-control" name="city">
+                    <label class="form-label" for="add_city">City / Municipality</label>
+                    <input type="text" class="form-control" id="add_city" name="city" autocomplete="address-level3">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Barangay</label>
-                    <input type="text" class="form-control" name="barangay">
+                    <label class="form-label" for="add_barangay">Barangay</label>
+                    <input type="text" class="form-control" id="add_barangay" name="barangay" autocomplete="off">
                 </div>
             </div>
 
             <h4 style="margin-top:20px;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Other Details</h4>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Preferred Branch</label>
-                    <input type="text" class="form-control" name="preferred_branch">
+                    <label class="form-label" for="add_preferred_branch">Preferred Branch</label>
+                    <input type="text" class="form-control" id="add_preferred_branch" name="preferred_branch" autocomplete="off">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Source</label>
-                    <select class="form-control" name="source">
+                    <label class="form-label" for="add_source">Source</label>
+                    <select class="form-control" id="add_source" name="source" autocomplete="off">
                         <option value="">Select Source...</option>
                         <option value="Facebook">Facebook</option>
                         <option value="Friend/Family">Friend/Family</option>
@@ -178,22 +177,22 @@ include dirname(__DIR__) . '/layouts/header.php';
             <h4 style="margin-top:20px;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Recruiter Details</h4>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Recruiter's ID</label>
-                    <input type="text" class="form-control" name="recruiter_id">
+                    <label class="form-label" for="add_recruiter_id">Recruiter's ID</label>
+                    <input type="text" class="form-control" id="add_recruiter_id" name="recruiter_id" autocomplete="off">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Recruiter's Name</label>
-                    <input type="text" class="form-control" name="recruiter_name">
+                    <label class="form-label" for="add_recruiter_name">Recruiter's Name</label>
+                    <input type="text" class="form-control" id="add_recruiter_name" name="recruiter_name" autocomplete="off">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">Recruiter's Mobile No.</label>
-                    <input type="tel" class="form-control" name="recruiter_phone">
+                    <label class="form-label" for="add_recruiter_phone">Recruiter's Mobile No.</label>
+                    <input type="tel" class="form-control" id="add_recruiter_phone" name="recruiter_phone" autocomplete="off">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Recruiter's FB Profile</label>
-                    <input type="text" class="form-control" name="recruiter_fb">
+                    <label class="form-label" for="add_recruiter_fb">Recruiter's FB Profile</label>
+                    <input type="text" class="form-control" id="add_recruiter_fb" name="recruiter_fb" autocomplete="off">
                 </div>
             </div>
         </form>

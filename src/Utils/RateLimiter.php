@@ -45,6 +45,32 @@ class RateLimiter {
 
         return true;
     }
+
+    /**
+     * Get the current status of the rate limit without incrementing.
+     *
+     * @param string $ip       The IP address of the client
+     * @param string $endpoint The endpoint identifier (e.g., 'login', 'api')
+     * @param int $maxRequests Maximum number of requests allowed in the window
+     * @param int $windowSec   Time window in seconds
+     * @return array           Array containing 'allowed' bool and 'remaining' int seconds
+     */
+    public function getStatus(string $ip, string $endpoint, int $maxRequests, int $windowSec): array {
+        $cleanupStmt = $this->db->prepare("DELETE FROM rate_limits WHERE ip_address = ? AND endpoint = ? AND window_start < (NOW() - INTERVAL ? SECOND)");
+        $cleanupStmt->execute([$ip, $endpoint, $windowSec]);
+
+        $stmt = $this->db->prepare("SELECT id, requests, UNIX_TIMESTAMP(window_start) as window_start_ts FROM rate_limits WHERE ip_address = ? AND endpoint = ? LIMIT 1");
+        $stmt->execute([$ip, $endpoint]);
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($record) {
+            if ($record['requests'] >= $maxRequests) {
+                $remaining = ($record['window_start_ts'] + $windowSec) - time();
+                return ['allowed' => false, 'remaining' => max(0, $remaining)];
+            }
+        }
+        return ['allowed' => true, 'remaining' => 0];
+    }
 }
 
 /**

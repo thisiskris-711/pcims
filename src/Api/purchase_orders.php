@@ -4,6 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
+requirePermission('manage_suppliers');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -92,8 +93,6 @@ switch ($method) {
         $action = $_GET['action'] ?? '';
 
         if ($action === 'receive') {
-            requireRole(ROLE_ADMIN, ROLE_MANAGER);
-            
             $input = json_decode(file_get_contents('php://input'), true);
             $poId = (int)($input['po_id'] ?? 0);
             $items = $input['items'] ?? []; // Array of { item_id, quantity }
@@ -166,6 +165,10 @@ switch ($method) {
                 $updatePoStatus->execute([$newStatus, $newStatus, $poId]);
 
                 $db->commit();
+                
+                // This triggers the reset logic for any newly replenished stock
+                processLowStockAlerts($db);
+                
                 jsonResponse(['success' => true, 'message' => 'Items received successfully', 'status' => $newStatus]);
             } catch (Exception $e) {
                 $db->rollBack();
@@ -175,7 +178,6 @@ switch ($method) {
         }
 
         // Create PO
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $input = json_decode(file_get_contents('php://input'), true);
 
         $supplierId = (int)($input['supplier_id'] ?? 0);
@@ -235,7 +237,6 @@ switch ($method) {
         break;
 
     case 'PUT':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $id = (int)($_GET['id'] ?? 0);
         $action = $_GET['action'] ?? '';
         
@@ -269,7 +270,6 @@ switch ($method) {
         break;
 
     case 'DELETE':
-        requireRole(ROLE_ADMIN);
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'PO ID required'], 400);
 

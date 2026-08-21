@@ -1,0 +1,16 @@
+<script>
+const responseText = '{"data":[{"id":2,"permissions":"[\\"manage_users\\"]"}]}';
+const response = JSON.parse(responseText);
+const u = response.data[0];
+
+const permsString = u.permissions ? u.permissions : null;
+let perms = [];
+try {
+    perms = JSON.parse(permsString);
+    if (!Array.isArray(perms)) perms = [];
+} catch (e) {
+    console.error("ERROR", e);
+    perms = [];
+}
+console.log("perms =", perms);
+</script>

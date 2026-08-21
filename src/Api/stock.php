@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER, ROLE_AUDITOR);
+requirePermission('manage_inventory');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -64,7 +64,6 @@ switch ($method) {
         break;
         
     case 'POST':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER);
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
         $productId = (int)($input['product_id'] ?? 0);
@@ -113,6 +112,7 @@ switch ($method) {
             }
             
             $db->commit();
+            processLowStockAlerts($db);
             jsonResponse(['success' => true, 'message' => "Stock $type recorded: $quantity × {$product['name']}", 'balance' => $newBalance]);
         } catch (Exception $e) {
             $db->rollBack();

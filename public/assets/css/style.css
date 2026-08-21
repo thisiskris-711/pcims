@@ -917,6 +917,7 @@ textarea.form-control {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+    white-space: nowrap;
 }
 
 .badge-violet {
@@ -970,10 +971,10 @@ textarea.form-control {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(15, 23, 42, 0.5);
     z-index: 2000;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     opacity: 0;
     visibility: hidden;
     transition: all var(--transition-normal);
@@ -1183,10 +1184,36 @@ textarea.form-control {
     overflow-y: auto;
 }
 
+.pos-categories-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 8px;
+    scrollbar-width: none; /* Firefox */
+}
+
+.pos-categories-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.pos-cat-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.pos-cat-btn.active {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+}
+
 .pos-product-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 16px;
     padding: 4px;
 }
 
@@ -1198,6 +1225,9 @@ textarea.form-control {
     cursor: pointer;
     transition: all var(--transition-fast);
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .pos-product-card:hover {
@@ -1207,16 +1237,17 @@ textarea.form-control {
 }
 
 .pos-product-card .product-img {
-    width: 64px;
-    height: 64px;
+    width: 84px;
+    height: 84px;
     border-radius: var(--border-radius-sm);
-    margin: 0 auto 10px;
+    margin: 0 auto 12px;
     background: var(--bg-tertiary);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .pos-product-card .product-img img {
@@ -1226,14 +1257,17 @@ textarea.form-control {
 }
 
 .pos-product-card .product-name {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    line-height: 1.4;
+    min-height: 2.8em;
+    flex-grow: 1;
 }
 
 .pos-product-card .product-price {
@@ -1243,9 +1277,18 @@ textarea.form-control {
 }
 
 .pos-product-card .product-stock {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 6px;
+}
+
+.pos-product-card.low-stock .product-stock {
+    color: var(--warning-color);
+    font-weight: 600;
+    background: var(--warning-color)15;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
 }
 
 /* POS Cart */
@@ -1408,7 +1451,7 @@ textarea.form-control {
     border-top: 1px solid var(--border-color);
     padding-top: 12px;
     margin-top: 8px;
-    color: var(--text-white);
+    color: var(--text-primary);
 }
 
 .pos-cart-actions {
@@ -1461,6 +1504,219 @@ textarea.form-control {
 .tab-content.active {
     display: block;
     animation: fadeIn 0.3s ease;
+}
+
+/* ── POS Recommendations ── */
+.pos-recommendations {
+    border-top: 1px solid var(--border-color);
+    padding: 12px 16px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-tertiary);
+}
+
+.pos-rec-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.pos-rec-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    margin-bottom: 6px;
+    transition: all var(--transition-fast);
+}
+
+.pos-rec-card:hover {
+    border-color: var(--accent-primary);
+}
+
+.pos-rec-card-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.pos-rec-card-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pos-rec-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pos-rec-card-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pos-rec-card-reason {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.pos-rec-card-price {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent-emerald);
+    white-space: nowrap;
+}
+
+.pos-rec-add-btn {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.pos-rec-add-btn:hover {
+    opacity: 0.85;
+    transform: scale(1.02);
+}
+
+/* Bundle Card */
+.pos-bundle-card {
+    padding: 10px 12px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--accent-amber);
+    margin-bottom: 6px;
+}
+
+.pos-bundle-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.pos-bundle-card-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.pos-bundle-card-savings {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent-emerald);
+    background: rgba(16, 185, 129, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.pos-bundle-card-items {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.pos-bundle-card-prices {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+}
+
+.pos-bundle-card-prices .regular {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.pos-bundle-card-prices .bundle {
+    font-weight: 700;
+    color: var(--accent-emerald);
+}
+
+/* Promotion Badge */
+.pos-promo-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    margin-bottom: 6px;
+}
+
+.pos-promo-badge.qualified {
+    border-color: var(--accent-emerald);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.pos-promo-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--accent-primary);
+    color: white;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.pos-promo-badge.qualified .pos-promo-label {
+    background: var(--accent-emerald);
+}
+
+.pos-promo-desc {
+    font-size: 0.78rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.pos-promo-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.pos-promo-progress-bar {
+    height: 100%;
+    background: var(--accent-primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.pos-promo-badge.qualified .pos-promo-progress-bar {
+    background: var(--accent-emerald);
 }
 
 /* ── Product Image ── */
@@ -1766,32 +2022,39 @@ textarea.form-control {
 }
 
 .login-card {
-    background: #9A0002; /* Cherry Red */
-    color: #ffffff;
-    border: 1px solid #7a0002;
+    background: var(--bg-card, #ffffff);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius-xl);
     padding: 40px;
     box-shadow: var(--shadow-lg);
 }
 
-.login-card .login-title,
-.login-card .login-subtitle,
-.login-card .logo-text,
-.login-card .form-label {
-    color: #ffffff;
+.login-card .login-title {
+    color: var(--text-primary);
 }
 
-.login-card .text-muted,
-.login-card .text-secondary {
-    color: #ffe6e6 !important;
+.login-card .login-subtitle {
+    color: var(--text-muted);
+}
+
+.login-card .logo-text {
+    color: #9A0002;
+    font-weight: 800;
 }
 
 .login-logo {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    margin-bottom: 32px;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.login-logo .logo-img {
+    height: 56px;
+    object-fit: contain;
 }
 
 .login-logo .logo-icon {
@@ -1800,25 +2063,28 @@ textarea.form-control {
 }
 
 .login-logo .logo-text {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
+    letter-spacing: -0.5px;
+    font-weight: 800;
+    color: #9A0002;
 }
 
 .login-title {
     text-align: center;
-    margin-bottom: 8px;
-    font-size: 1.3rem;
+    margin-bottom: 4px;
+    font-size: 1.2rem;
     font-weight: 700;
 }
 
 .login-subtitle {
     text-align: center;
     color: var(--text-muted);
-    font-size: 0.88rem;
-    margin-bottom: 32px;
+    font-size: 0.9rem;
+    margin-bottom: 24px;
 }
 
 .login-form .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .form-floating {
@@ -1826,9 +2092,11 @@ textarea.form-control {
 }
 
 .form-floating > .form-control {
-    padding: 1.625rem 1rem 0.625rem 1rem;
-    height: calc(3.5rem + 2px);
+    padding: 1.5rem 1rem 0.5rem 1rem;
+    height: 3.5rem;
     line-height: 1.25;
+    font-family: inherit;
+    border-radius: var(--border-radius-sm);
 }
 
 .form-floating > .form-control::placeholder {
@@ -1881,16 +2149,16 @@ textarea.form-control {
     padding: 14px;
     font-size: 1rem;
     margin-top: 8px;
-    background-color: #ffffff !important;
-    color: #9A0002 !important;
-    border-color: #ffffff !important;
+    background-color: #9A0002 !important;
+    color: #ffffff !important;
+    border-color: #9A0002 !important;
     transition: all 0.2s ease;
 }
 
 .login-btn:hover {
-    background-color: #f8f9fa !important;
-    color: #7a0002 !important;
-    border-color: #f8f9fa !important;
+    background-color: #7a0002 !important;
+    color: #ffffff !important;
+    border-color: #7a0002 !important;
     transform: translateY(-1px);
     cursor: pointer;
 }
@@ -1900,31 +2168,27 @@ textarea.form-control {
     padding: 14px;
     font-size: 1rem;
     margin-top: 8px;
-    background-color: rgba(255, 255, 255, 0.15) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background-color: transparent !important;
+    color: #9A0002 !important;
+    border: 1px solid #9A0002 !important;
     border-radius: var(--border-radius-sm);
     transition: all 0.2s ease;
     cursor: pointer;
 }
 
 .login-btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.25) !important;
+    background-color: rgba(154, 0, 2, 0.05) !important;
 }
 
 .login-error {
     text-align: center;
-    color: var(--accent-rose);
+    color: #9A0002;
     font-size: 0.85rem;
     margin-bottom: 16px;
     padding: 10px;
-    background: rgba(244, 63, 94, 0.08);
+    background: rgba(154, 0, 2, 0.1);
     border-radius: var(--border-radius-sm);
-}
-
-.login-card .login-error {
-    color: #ffcccc !important;
-    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(154, 0, 2, 0.2);
 }
 
 /* ── Profile Page ── */
@@ -2632,3 +2896,9 @@ textarea.form-control {
     color: var(--text-white) !important; 
     border-color: var(--accent-primary) !important; 
 }
+
+/* Profile & Sidebar Polish */
+.sidebar-user:hover { background: rgba(255,255,255,0.05); }
+.sidebar-user.active { background: rgba(255,255,255,0.15); box-shadow: inset 3px 0 0 #fff; }
+.sidebar { background: linear-gradient(180deg, #9A0002 0%, #680000 100%); }
+

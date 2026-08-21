@@ -8,9 +8,10 @@ $db = getDB();
 
 switch ($method) {
     case 'GET':
-        requireLogin(); // Only admins/managers should see the list
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
+        requireLogin();
+requirePermission('manage_dealers');
 
+// Only admins/managers should see the list
         $status = $_GET['status'] ?? 'pending';
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
@@ -45,6 +46,8 @@ switch ($method) {
         
         if ($action === 'submit') {
             // Public endpoint: Submit new application
+            // Prevent spam: Max 3 applications per hour per IP
+            enforceRateLimit('dealer_application_submit', 3, 3600);
             $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
             $firstName = trim($input['first_name'] ?? '');
@@ -79,9 +82,9 @@ switch ($method) {
 
         if ($action === 'add_and_approve') {
             requireLogin();
-            requireRole(ROLE_ADMIN, ROLE_MANAGER);
-            
-            $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+requirePermission('manage_dealers');
+
+$input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
             
             $firstName = trim($input['first_name'] ?? '');
             $lastName = trim($input['last_name'] ?? '');
@@ -141,7 +144,7 @@ switch ($method) {
                     trim($input['email'] ?? ''), 
                     $phone, 
                     $address, 
-                    0, 
+                    2000, 
                     'Added manually via application form', 
                     getCurrentUserId()
                 ]);
@@ -156,9 +159,9 @@ switch ($method) {
         
         if ($action === 'approve') {
             requireLogin();
-            requireRole(ROLE_ADMIN, ROLE_MANAGER);
-            
-            $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+requirePermission('manage_dealers');
+
+$input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
             $id = (int)($input['id'] ?? 0);
             if (!$id) jsonResponse(['error' => 'Application ID required'], 400);
 
@@ -198,8 +201,8 @@ switch ($method) {
                     $application['email'], 
                     $application['phone'], 
                     $address, 
-                    0, 
-                    'Migrated from application #' . $application['id'], 
+                    2000, 
+                    'Approved application', 
                     getCurrentUserId()
                 ]);
 
@@ -217,11 +220,17 @@ switch ($method) {
 
         if ($action === 'reject') {
             requireLogin();
-            requireRole(ROLE_ADMIN, ROLE_MANAGER);
-            
-            $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+requirePermission('manage_dealers');
+
+$input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
             $id = (int)($input['id'] ?? 0);
             if (!$id) jsonResponse(['error' => 'Application ID required'], 400);
+
+            $stmt = $db->prepare("SELECT id FROM dealer_applications WHERE id = ? AND status = 'pending'");
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                jsonResponse(['error' => 'Application not found or not pending'], 404);
+            }
 
             $stmt = $db->prepare("UPDATE dealer_applications SET status = 'rejected' WHERE id = ?");
             $stmt->execute([$id]);

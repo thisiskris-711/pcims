@@ -4,8 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
-
+requirePermission('manage_products');
 $pageTitle = 'Categories';
 $currentPage = 'categories';
 include dirname(__DIR__) . '/layouts/header.php';

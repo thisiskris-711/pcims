@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
+requirePermission('manage_products');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -23,7 +23,6 @@ switch ($method) {
         break;
         
     case 'POST':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
         $name = trim($input['name'] ?? '');
@@ -45,9 +44,12 @@ switch ($method) {
         break;
         
     case 'PUT':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
-        $id = $_GET['id'] ?? 0;
+        $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Category ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM categories WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Category not found'], 404);
         
         $input = json_decode(file_get_contents('php://input'), true);
         $name = trim($input['name'] ?? '');
@@ -68,9 +70,12 @@ switch ($method) {
         break;
         
     case 'DELETE':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
-        $id = $_GET['id'] ?? 0;
+        $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Category ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM categories WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Category not found'], 404);
         
         // Set products to uncategorized
         $db->prepare("UPDATE products SET category_id = NULL WHERE category_id = ?")->execute([$id]);

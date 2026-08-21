@@ -155,7 +155,17 @@ function hasPermission(string $permission): bool {
         }
         
         $userRole = $user['role'];
-        $userPerms = $user['permissions'] ? json_decode($user['permissions'], true) : [];
+        if ($user['permissions'] === null) {
+            // Inherit from role presets
+            $roleStmt = $db->prepare("SELECT permissions FROM roles WHERE name = ?");
+            $roleStmt->execute([$userRole]);
+            $roleData = $roleStmt->fetch();
+            $userPerms = $roleData && $roleData['permissions'] ? json_decode($roleData['permissions'], true) : [];
+        } else {
+            // Use custom overrides
+            $userPerms = json_decode($user['permissions'], true);
+        }
+        
         if (!is_array($userPerms)) {
             $userPerms = [];
         }
@@ -166,6 +176,24 @@ function hasPermission(string $permission): bool {
     }
     
     return in_array($permission, $userPerms);
+}
+
+/**
+ * Get a list of all available system permissions
+ */
+function getAllPermissions(): array {
+    return [
+        'manage_users' => 'Manage Users',
+        'manage_roles' => 'Manage Roles',
+        'manage_products' => 'Manage Products',
+        'manage_inventory' => 'Manage Inventory',
+        'manage_dealers' => 'Manage Dealers',
+        'manage_suppliers' => 'Manage Suppliers',
+        'view_sales' => 'View Sales',
+        'create_sales' => 'Create Sales',
+        'approve_sales' => 'Approve Sales',
+        'view_reports' => 'View Reports'
+    ];
 }
 
 /**
@@ -191,4 +219,29 @@ function requirePermission(string $permission): void {
 function isAjaxRequest(): bool {
     return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+/**
+ * Check if current user has ANY of the specified permissions
+ */
+function hasAnyPermission(string ...$permissions): bool {
+    foreach ($permissions as $p) {
+        if (hasPermission($p)) return true;
+    }
+    return false;
+}
+
+/**
+ * Require ANY of the specified permissions
+ */
+function requireAnyPermission(string ...$permissions): void {
+    if (!hasAnyPermission(...$permissions)) {
+        if (isAjaxRequest()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied: Missing required permission']);
+            exit;
+        }
+        flashMessage('You do not have permission to perform this action.', 'error');
+        redirect(APP_URL . '/');
+    }
 }

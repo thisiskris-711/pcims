@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Application Configuration
  */
@@ -24,11 +25,12 @@ define('ITEMS_PER_PAGE', 15);
 define('DEFAULT_TAX_RATE', 12); // percent
 
 // Roles
-define('ROLE_ADMIN', 'admin');
-define('ROLE_MANAGER', 'manager');
-define('ROLE_CASHIER', 'cashier');
-define('ROLE_STOCKER', 'stocker');
+define('ROLE_ADMIN', 'system_admin');
+define('ROLE_MANAGER', 'inventory_manager');
+define('ROLE_CASHIER', 'sales_associate');
+define('ROLE_STOCKER', 'stock_associate');
 define('ROLE_AUDITOR', 'auditor');
+define('ROLE_AP_CLERK', 'ap_clerk');
 
 // Require composer autoload
 if (file_exists(ROOT_PATH . '/vendor/autoload.php')) {
@@ -61,8 +63,22 @@ require_once ROOT_PATH . '/src/Utils/helpers.php';
 require_once ROOT_PATH . '/src/Utils/auth.php';
 require_once ROOT_PATH . '/src/Utils/RateLimiter.php';
 require_once ROOT_PATH . '/src/Utils/mailer.php';
+require_once ROOT_PATH . '/src/Utils/stock_alerts.php';
 
-// Enforce Rate Limiting for all API endpoints (max 100 requests per 60 seconds)
+// Enforce Rate Limiting for all API endpoints
 if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
+    // Global API limit (max 100 requests per 60 seconds)
     enforceRateLimit('api_global', 100, 60);
+    
+    // Dynamic per-endpoint limit (max 30 requests per 60 seconds to prevent aggressive scraping)
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $basePath = parse_url(APP_URL, PHP_URL_PATH);
+    $route = $path;
+    if ($basePath && strpos($path, $basePath) === 0) {
+        $route = substr($path, strlen($basePath));
+    }
+    $route = trim($route, '/');
+    if (!empty($route)) {
+        enforceRateLimit('api_route_' . md5($route), 30, 60);
+    }
 }

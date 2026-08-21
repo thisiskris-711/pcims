@@ -36,6 +36,21 @@ function generateSKU(string $categoryPrefix = 'GN'): string {
 }
 
 /**
+ * Log an action to the audit_logs table
+ */
+function logAudit(string $action, ?int $targetUserId = null, ?string $oldValue = null, ?string $newValue = null): void {
+    $db = getDB();
+    $currentUserId = $_SESSION['user_id'] ?? null;
+    
+    try {
+        $stmt = $db->prepare("INSERT INTO audit_logs (user_id, action, target_user_id, old_value, new_value) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$currentUserId, $action, $targetUserId, $oldValue, $newValue]);
+    } catch (Exception $e) {
+        // Silently fail for audit logs to not interrupt main processes, but you could error_log here
+    }
+}
+
+/**
  * Generate invoice number
  */
 function generateInvoiceNo(): string {
@@ -234,6 +249,22 @@ function generateCSRFToken(): string {
 
 function validateCSRFToken(?string $token): bool {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token ?? '');
+}
+
+function verifyCSRFToken(): void {
+    $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? null;
+    
+    if (!$token && isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $token = $input['csrf_token'] ?? null;
+    }
+    
+    if (!validateCSRFToken($token)) {
+        header('Content-Type: application/json');
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid or missing CSRF token']);
+        exit;
+    }
 }
 
 /**

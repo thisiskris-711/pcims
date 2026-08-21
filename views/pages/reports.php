@@ -4,8 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_AUDITOR);
-
+requirePermission('view_reports');
 $pageTitle = 'Reports';
 $currentPage = 'reports';
 include dirname(__DIR__) . '/layouts/header.php';
@@ -27,6 +26,9 @@ include dirname(__DIR__) . '/layouts/header.php';
     </button>
     <button class="tab-btn" data-tab="forecastReport" onclick="switchReportTab(this, 'forecast')">
         <i data-lucide="line-chart" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> Predictive Analysis
+    </button>
+    <button class="tab-btn" data-tab="collectionEfficiency" onclick="switchReportTab(this, 'collection_efficiency')">
+        <i data-lucide="percent" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;"></i> Collection Efficiency
     </button>
 </div>
 
@@ -141,22 +143,32 @@ function renderReport(data) {
             case 'sales':
                 summaryEl.innerHTML = `
                     <div class="stat-card violet"><div class="stat-value">${s.count}</div><div class="stat-label">Total Orders</div></div>
-                    <div class="stat-card emerald"><div class="stat-value">$${parseFloat(s.revenue).toFixed(2)}</div><div class="stat-label">Total Revenue</div></div>
-                    <div class="stat-card amber"><div class="stat-value">$${parseFloat(s.discounts).toFixed(2)}</div><div class="stat-label">Total Discounts</div></div>
-                    <div class="stat-card cyan"><div class="stat-value">$${parseFloat(s.taxes).toFixed(2)}</div><div class="stat-label">Total Tax</div></div>
+                    <div class="stat-card emerald"><div class="stat-value">${formatCurrency(s.revenue)}</div><div class="stat-label">Total Revenue</div></div>
+                    <div class="stat-card amber"><div class="stat-value">${formatCurrency(s.discounts)}</div><div class="stat-label">Total Discounts</div></div>
+                    <div class="stat-card cyan"><div class="stat-value">${formatCurrency(s.taxes)}</div><div class="stat-label">Total Tax</div></div>
                 `;
                 break;
             case 'inventory':
                 summaryEl.innerHTML = `
                     <div class="stat-card violet"><div class="stat-value">${s.total_items.toLocaleString()}</div><div class="stat-label">Total Units</div></div>
-                    <div class="stat-card amber"><div class="stat-value">$${parseFloat(s.total_cost).toFixed(2)}</div><div class="stat-label">Cost Value</div></div>
-                    <div class="stat-card emerald"><div class="stat-value">$${parseFloat(s.total_retail).toFixed(2)}</div><div class="stat-label">Retail Value</div></div>
+                    <div class="stat-card amber"><div class="stat-value">${formatCurrency(s.total_cost)}</div><div class="stat-label">Cost Value</div></div>
+                    <div class="stat-card emerald"><div class="stat-value">${formatCurrency(s.total_retail)}</div><div class="stat-label">Retail Value</div></div>
                 `;
                 break;
             case 'stock_movement':
                 summaryEl.innerHTML = `
                     <div class="stat-card emerald"><div class="stat-value">${s.in_count}</div><div class="stat-label">Stock In (${s.in_qty} units)</div></div>
                     <div class="stat-card rose"><div class="stat-value">${s.out_count}</div><div class="stat-label">Stock Out (${s.out_qty} units)</div></div>
+                `;
+                break;
+            case 'collection_efficiency':
+                summaryEl.innerHTML = `
+                    <div class="stat-card violet"><div class="stat-value">${formatCurrency(s.maturing_amount)}</div><div class="stat-label">Maturing</div></div>
+                    <div class="stat-card emerald"><div class="stat-value">${formatCurrency(s.total_collected)}</div><div class="stat-label">Collected</div></div>
+                    <div class="stat-card rose"><div class="stat-value">${formatCurrency(s.uncollected)}</div><div class="stat-label">Uncollected</div></div>
+                    <div class="stat-card cyan"><div class="stat-value">${s.on_time_efficiency.toFixed(2)}%</div><div class="stat-label">On-Time %</div></div>
+                    <div class="stat-card amber"><div class="stat-value">${s.grace_efficiency.toFixed(2)}%</div><div class="stat-label">7-Day %</div></div>
+                    <div class="stat-card blue"><div class="stat-value">${s.overall_efficiency.toFixed(2)}%</div><div class="stat-label">Overall %</div></div>
                 `;
                 break;
             default:
@@ -259,6 +271,26 @@ function renderReport(data) {
                     <td class="font-bold text-violet">${r.suggested_reorder > 0 ? r.suggested_reorder : '—'}</td>
                 </tr>`;
             }).join('');
+            break;
+            
+        case 'collection_efficiency':
+            thead.innerHTML = '<tr><th>Due Date</th><th>Invoice</th><th>Customer</th><th>Maturing</th><th>Cash Purch.</th><th>On-Time</th><th>Grace</th><th>After 7</th><th>Total Col.</th><th>Uncollected</th><th>On-Time %</th><th>Grace %</th><th>Overall %</th></tr>';
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td class="text-muted">${r.due_date}</td>
+                    <td><code style="color:var(--accent-cyan);">${r.invoice_no}</code></td>
+                    <td class="font-bold truncate" style="max-width:120px;" title="${escapeHtml(r.customer)}">${escapeHtml(r.customer)}</td>
+                    <td class="font-bold">${formatCurrency(r.maturing_amount)}</td>
+                    <td class="text-muted">${formatCurrency(r.cash_purchase)}</td>
+                    <td class="text-success">${formatCurrency(r.on_time)}</td>
+                    <td class="text-warning">${formatCurrency(r.grace_period)}</td>
+                    <td class="text-danger">${formatCurrency(r.after_grace)}</td>
+                    <td class="font-bold text-success">${formatCurrency(r.total_collected)}</td>
+                    <td class="font-bold text-danger">${formatCurrency(r.uncollected)}</td>
+                    <td class="font-bold">${r.on_time_efficiency.toFixed(2)}%</td>
+                    <td class="font-bold">${r.grace_efficiency.toFixed(2)}%</td>
+                    <td class="font-bold">${r.overall_efficiency.toFixed(2)}%</td>
+                </tr>`).join('');
             break;
     }
     

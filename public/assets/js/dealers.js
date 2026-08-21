@@ -264,7 +264,7 @@ async function viewDealer(id) {
                         <tbody>
                             ${d.recent_sales.map(s => `
                                 <tr>
-                                    <td><code style="font-size:0.78rem;">${s.invoice_no}</code></td>
+                                    <td><a href="${window.APP_URL}/invoice_print?id=${s.id}" target="_blank" style="text-decoration:none; color:var(--primary-color);" title="View Invoice"><code style="font-size:0.78rem; cursor:pointer;">${s.invoice_no}</code></a></td>
                                     <td style="font-weight:500;">${formatCurrency(s.total)}</td>
                                     <td>${s.payment_method}</td>
                                     <td><span class="status-badge" style="color:${s.payment_status === 'paid' ? 'var(--success-color)' : 'var(--warning-color)'};background:${s.payment_status === 'paid' ? 'var(--success-color)' : 'var(--warning-color)'}15;">${s.payment_status}</span></td>

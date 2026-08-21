@@ -1,5 +1,11 @@
 # Environment configuration
 .env
+.env.local
+.env.*.local
+
+# Debug & test output artifacts
+*_output.html
+extracted_*.js
 
 # IDE and OS files
 .vscode/

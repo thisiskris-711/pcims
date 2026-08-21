@@ -4,6 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
+requirePermission('manage_suppliers');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -96,7 +97,6 @@ switch ($method) {
         break;
 
     case 'POST':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
         $name = trim($input['name'] ?? '');
@@ -135,9 +135,12 @@ switch ($method) {
         break;
 
     case 'PUT':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Supplier ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM suppliers WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Supplier not found'], 404);
 
         $input = json_decode(file_get_contents('php://input'), true);
 
@@ -167,9 +170,12 @@ switch ($method) {
         break;
 
     case 'DELETE':
-        requireRole(ROLE_ADMIN);
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Supplier ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM suppliers WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Supplier not found'], 404);
 
         // Optional: Check if there are active purchase orders, for now just set to inactive.
         $stmt = $db->prepare("UPDATE suppliers SET status = 'inactive' WHERE id = ?");

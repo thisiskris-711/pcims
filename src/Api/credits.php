@@ -10,6 +10,7 @@ $db = getDB();
 
 switch ($method) {
     case 'GET':
+        requireAnyPermission('manage_dealers', 'approve_sales', 'view_sales');
         $action = $_GET['action'] ?? 'history';
         $dealerId = (int)($_GET['dealer_id'] ?? 0);
 

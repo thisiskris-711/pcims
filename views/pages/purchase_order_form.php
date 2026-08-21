@@ -4,8 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
-
+requirePermission('manage_suppliers');
 $pageTitle = 'Create Purchase Order';
 $currentPage = 'purchase_orders';
 $pageScripts = ['purchase_order_form.js'];

@@ -158,12 +158,16 @@ async function apiRequest(url, options = {}) {
     
     // Add CSRF token for non-GET requests
     if (config.method !== 'GET' && window.CSRF_TOKEN) {
+        config.headers['X-CSRF-Token'] = window.CSRF_TOKEN;
+        
         if (config.body instanceof FormData) {
             config.body.append('csrf_token', window.CSRF_TOKEN);
-        } else if (config.headers['Content-Type'] === 'application/json') {
-            const body = JSON.parse(config.body || '{}');
-            body.csrf_token = window.CSRF_TOKEN;
-            config.body = JSON.stringify(body);
+        } else if (config.headers['Content-Type'] === 'application/json' || (config.body && typeof config.body === 'string' && config.body.startsWith('{'))) {
+            try {
+                const body = JSON.parse(config.body || '{}');
+                body.csrf_token = window.CSRF_TOKEN;
+                config.body = JSON.stringify(body);
+            } catch (e) {}
         }
     }
     
@@ -421,3 +425,72 @@ function renderPagination(container, page, totalPages, callback) {
     
     container.innerHTML = html;
 }
+
+// ── Inactivity & Session Timeout ──
+let lastActivityTime = Date.now();
+let lastKeepAliveTime = Date.now();
+let sessionCheckInterval = null;
+
+const IDLE_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const WARNING_TIME = 14 * 60 * 1000; // 14 minutes
+const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+function resetInactivityTimer() {
+    lastActivityTime = Date.now();
+    
+    // Hide modal if it's active
+    const modal = document.getElementById('sessionTimeoutModal');
+    if (modal && modal.classList.contains('active')) {
+        closeModal('sessionTimeoutModal');
+    }
+    
+    // Ping backend if it's been more than 5 minutes since last ping
+    if (Date.now() - lastKeepAliveTime > KEEP_ALIVE_INTERVAL) {
+        lastKeepAliveTime = Date.now();
+        apiRequest('/api/keep_alive', { method: 'POST' }).catch(err => console.error('Keep alive failed', err));
+    }
+}
+
+function checkInactivity() {
+    const elapsed = Date.now() - lastActivityTime;
+    
+    if (elapsed >= IDLE_TIMEOUT) {
+        // Time is up, force logout
+        window.location.href = window.APP_URL + '/logout?reason=timeout';
+        return;
+    }
+    
+    if (elapsed >= WARNING_TIME) {
+        // Show warning modal and countdown
+        const modal = document.getElementById('sessionTimeoutModal');
+        const countdownEl = document.getElementById('sessionTimeoutCountdown');
+        
+        if (modal && !modal.classList.contains('active')) {
+            openModal('sessionTimeoutModal');
+        }
+        
+        if (countdownEl) {
+            const secondsLeft = Math.ceil((IDLE_TIMEOUT - elapsed) / 1000);
+            countdownEl.textContent = Math.max(0, secondsLeft);
+        }
+    }
+}
+
+// Initialize activity tracking if we're on a logged-in page
+// (We assume window.CSRF_TOKEN implies a logged-in session for most pages, or we just run it always)
+document.addEventListener('DOMContentLoaded', () => {
+    // Only track if not on login page
+    if (window.location.pathname.indexOf('/login') === -1) {
+        // Throttle the reset to avoid processing every single tiny movement
+        const throttledReset = debounce(resetInactivityTimer, 1000);
+        
+        // Listen to various activity events
+        window.addEventListener('mousemove', throttledReset);
+        window.addEventListener('keydown', throttledReset);
+        window.addEventListener('click', throttledReset);
+        window.addEventListener('scroll', throttledReset);
+        
+        // Check every second
+        sessionCheckInterval = setInterval(checkInactivity, 1000);
+    }
+});

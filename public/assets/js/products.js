@@ -170,3 +170,84 @@ async function confirmDelete() {
         showToast(e.message || 'Failed to delete product', 'error');
     }
 }
+
+// Bulk Actions
+document.addEventListener('change', (e) => {
+    if (e.target.matches('.product-checkbox') || e.target.id === 'selectAll') {
+        updateBulkActions();
+    }
+});
+
+function getSelectedIds() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+function updateBulkActions() {
+    const selectedIds = getSelectedIds();
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (selectedIds.length > 0) {
+        bulkActions.style.display = 'flex';
+        selectedCount.textContent = selectedIds.length;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+function promptBulkDelete() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) return;
+    
+    if (confirm(`Are you sure you want to delete ${selectedIds.length} selected products? This cannot be undone.`)) {
+        confirmBulkDelete(selectedIds);
+    }
+}
+
+async function confirmBulkDelete(ids) {
+    try {
+        const res = await apiRequest('/api/products?action=bulk_delete', { 
+            method: 'POST', 
+            body: JSON.stringify({ ids }) 
+        });
+        if (res.success) {
+            showToast(res.message, 'success');
+            document.getElementById('selectAll').checked = false;
+            updateBulkActions();
+            loadProducts();
+        }
+    } catch (e) {
+        showToast(e.message || 'Failed to delete products', 'error');
+    }
+}
+
+async function applyBulkCategory() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) return;
+    
+    const categoryId = document.getElementById('bulkCategorySelect').value;
+    if (categoryId === '') {
+        showToast('Please select a category first', 'warning');
+        return;
+    }
+    
+    try {
+        const res = await apiRequest('/api/products?action=bulk_category', {
+            method: 'POST', 
+            body: JSON.stringify({ 
+                ids: selectedIds, 
+                category_id: categoryId 
+            })
+        });
+        if (res.success) {
+            showToast(res.message, 'success');
+            document.getElementById('selectAll').checked = false;
+            document.getElementById('bulkCategorySelect').value = '';
+            updateBulkActions();
+            loadProducts();
+        }
+    } catch (e) {
+        showToast(e.message || 'Failed to update category', 'error');
+    }
+}

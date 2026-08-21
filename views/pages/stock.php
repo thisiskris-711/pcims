@@ -4,8 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER, ROLE_STOCKER, ROLE_AUDITOR);
-
+requirePermission('manage_inventory');
 $db = getDB();
 $products = $db->query("SELECT id, name, sku, quantity, image FROM products WHERE status='active' AND type != 'bundle' ORDER BY name")->fetchAll();
 

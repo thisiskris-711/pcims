@@ -4,7 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
+requirePermission('view_reports');
 
 $db = getDB();
 $action = $_GET['action'] ?? '';
@@ -162,6 +162,160 @@ try {
         }
         break;
         
+    case 'collection_efficiency':
+        $stmt = $db->prepare("
+            SELECT s.id, s.invoice_no, s.due_date, s.total, s.adjustment_amount, 
+                   s.payment_method as sale_payment_method, DATE(s.created_at) as sale_date,
+                   COALESCE(d.name, 'Walk-in Customer') as customer_name
+            FROM sales s
+            LEFT JOIN dealers d ON s.dealer_id = d.id
+            WHERE s.due_date BETWEEN ? AND ?
+        ");
+        $stmt->execute([$dateFrom, $dateTo]);
+        $maturities = $stmt->fetchAll();
+
+        $summary = [
+            'maturing_amount' => 0,
+            'cash_purchase' => 0,
+            'adjustments' => 0,
+            'on_time_cash' => 0,
+            'on_time_cm' => 0,
+            'grace_cash' => 0,
+            'grace_cm' => 0,
+            'late_cash' => 0,
+            'late_cm' => 0,
+            'total_collected' => 0,
+            'uncollected' => 0
+        ];
+
+        $detailed_rows = [];
+
+        foreach ($maturities as $sale) {
+            $maturingAmount = (float)$sale['total'] + (float)$sale['adjustment_amount'];
+            $summary['maturing_amount'] += $maturingAmount;
+            $summary['adjustments'] += (float)$sale['adjustment_amount'];
+
+            $cStmt = $db->prepare("
+                SELECT amount, payment_date, payment_method 
+                FROM collections 
+                WHERE sale_id = ? AND status = 'active'
+            ");
+            $cStmt->execute([$sale['id']]);
+            $collections = $cStmt->fetchAll();
+
+            $saleCollections = [
+                'cash_purchase' => 0,
+                'on_time_cash' => 0,
+                'on_time_cm' => 0,
+                'grace_cash' => 0,
+                'grace_cm' => 0,
+                'late_cash' => 0,
+                'late_cm' => 0,
+            ];
+
+            foreach ($collections as $c) {
+                $amount = (float)$c['amount'];
+                $paymentDate = $c['payment_date'];
+                $dueDate = $sale['due_date'] ?: $sale['sale_date'];
+                $method = $c['payment_method'];
+                
+                $isCashPurchase = false;
+                if ($sale['sale_payment_method'] === 'cash' && $paymentDate === $sale['sale_date']) {
+                    $isCashPurchase = true;
+                }
+
+                if ($isCashPurchase) {
+                    $saleCollections['cash_purchase'] += $amount;
+                    $summary['cash_purchase'] += $amount;
+                } else if ($paymentDate <= $dueDate) {
+                    if ($method === 'credit_memo') {
+                        $saleCollections['on_time_cm'] += $amount;
+                        $summary['on_time_cm'] += $amount;
+                    } else {
+                        $saleCollections['on_time_cash'] += $amount;
+                        $summary['on_time_cash'] += $amount;
+                    }
+                } else {
+                    $datetime1 = new DateTime($dueDate);
+                    $datetime2 = new DateTime($paymentDate);
+                    $interval = $datetime1->diff($datetime2);
+                    $daysLate = (int)$interval->format('%r%a');
+
+                    if ($daysLate > 0 && $daysLate <= 7) {
+                        if ($method === 'credit_memo') {
+                            $saleCollections['grace_cm'] += $amount;
+                            $summary['grace_cm'] += $amount;
+                        } else {
+                            $saleCollections['grace_cash'] += $amount;
+                            $summary['grace_cash'] += $amount;
+                        }
+                    } else {
+                        if ($method === 'credit_memo') {
+                            $saleCollections['late_cm'] += $amount;
+                            $summary['late_cm'] += $amount;
+                        } else {
+                            $saleCollections['late_cash'] += $amount;
+                            $summary['late_cash'] += $amount;
+                        }
+                    }
+                }
+            }
+
+            $saleTotalCollected = array_sum($saleCollections);
+            $summary['total_collected'] += $saleTotalCollected;
+
+            $rowOnTimeTotal = $saleCollections['cash_purchase'] + $saleCollections['on_time_cash'] + $saleCollections['on_time_cm'];
+            $rowGraceTotal = $rowOnTimeTotal + $saleCollections['grace_cash'] + $saleCollections['grace_cm'];
+            
+            $detailed_rows[] = [
+                'invoice_no' => $sale['invoice_no'],
+                'customer' => $sale['customer_name'],
+                'due_date' => $sale['due_date'],
+                'maturing_amount' => $maturingAmount,
+                'cash_purchase' => $saleCollections['cash_purchase'],
+                'on_time' => $saleCollections['on_time_cash'] + $saleCollections['on_time_cm'],
+                'grace_period' => $saleCollections['grace_cash'] + $saleCollections['grace_cm'],
+                'after_grace' => $saleCollections['late_cash'] + $saleCollections['late_cm'],
+                'total_collected' => $saleTotalCollected,
+                'uncollected' => max(0, $maturingAmount - $saleTotalCollected),
+                'on_time_efficiency' => $maturingAmount > 0 ? ($rowOnTimeTotal / $maturingAmount) * 100 : 0,
+                'grace_efficiency' => $maturingAmount > 0 ? ($rowGraceTotal / $maturingAmount) * 100 : 0,
+                'overall_efficiency' => $maturingAmount > 0 ? ($saleTotalCollected / $maturingAmount) * 100 : 0
+            ];
+        }
+
+        $summary['uncollected'] = max(0, $summary['maturing_amount'] - $summary['total_collected']);
+        
+        $totalOnTime = $summary['cash_purchase'] + $summary['on_time_cash'] + $summary['on_time_cm'];
+        $totalGrace = $totalOnTime + $summary['grace_cash'] + $summary['grace_cm'];
+        
+        $summary['on_time_efficiency'] = $summary['maturing_amount'] > 0 ? ($totalOnTime / $summary['maturing_amount']) * 100 : 0;
+        $summary['grace_efficiency'] = $summary['maturing_amount'] > 0 ? ($totalGrace / $summary['maturing_amount']) * 100 : 0;
+        $summary['overall_efficiency'] = $summary['maturing_amount'] > 0 ? ($summary['total_collected'] / $summary['maturing_amount']) * 100 : 0;
+
+        if ($export === 'csv') {
+            exportCSV('collection_efficiency_report', 
+                ['Due Date', 'Invoice', 'Customer', 'Maturing Amount', 'Cash Purchase', 'On-Time', 'Grace Period', 'After 7 Days', 'Total Collected', 'Uncollected', 'On-Time %', 'Grace %', 'Overall %'], 
+                $detailed_rows,
+                fn($r) => [
+                    $r['due_date'], $r['invoice_no'], $r['customer'],
+                    number_format($r['maturing_amount'], 2, '.', ''),
+                    number_format($r['cash_purchase'], 2, '.', ''),
+                    number_format($r['on_time'], 2, '.', ''),
+                    number_format($r['grace_period'], 2, '.', ''),
+                    number_format($r['after_grace'], 2, '.', ''),
+                    number_format($r['total_collected'], 2, '.', ''),
+                    number_format($r['uncollected'], 2, '.', ''),
+                    number_format($r['on_time_efficiency'], 2, '.', '') . '%',
+                    number_format($r['grace_efficiency'], 2, '.', '') . '%',
+                    number_format($r['overall_efficiency'], 2, '.', '') . '%'
+                ]
+            );
+        }
+        
+        jsonResponse(['data' => $detailed_rows, 'summary' => $summary]);
+        break;
+
     default:
         jsonResponse(['error' => 'Invalid report type'], 400);
     }

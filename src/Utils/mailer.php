@@ -7,20 +7,29 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 function sendEmail(string $to, string $subject, string $body, bool $isHtml = true): bool {
+    // Fail fast if required SMTP environment variables are not configured
+    $requiredEnvVars = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
+    foreach ($requiredEnvVars as $var) {
+        if (empty($_ENV[$var])) {
+            error_log("Mailer Error: Required environment variable '$var' is not set. Check your .env file.");
+            return false;
+        }
+    }
+
     $mail = new PHPMailer(true);
 
     try {
         // Server settings
         $mail->isSMTP();
-        $mail->Host       = $_ENV['SMTP_HOST'] ?? 'smtp.mailtrap.io'; // Example default
+        $mail->Host       = $_ENV['SMTP_HOST'];
         $mail->SMTPAuth   = true;
-        $mail->Username   = $_ENV['SMTP_USER'] ?? 'username';
-        $mail->Password   = $_ENV['SMTP_PASS'] ?? 'password';
+        $mail->Username   = $_ENV['SMTP_USER'];
+        $mail->Password   = $_ENV['SMTP_PASS'];
         $mail->SMTPSecure = $_ENV['SMTP_SECURE'] ?? PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = $_ENV['SMTP_PORT'] ?? 587;
 
         // Recipients
-        $mail->setFrom($_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@inventorypro.com', $_ENV['MAIL_FROM_NAME'] ?? APP_NAME);
+        $mail->setFrom($_ENV['MAIL_FROM_ADDRESS'] ?? $_ENV['SMTP_USER'], $_ENV['MAIL_FROM_NAME'] ?? APP_NAME);
         $mail->addAddress($to);
 
         // Content

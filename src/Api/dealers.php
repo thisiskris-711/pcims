@@ -4,6 +4,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
+requirePermission('manage_dealers');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $db = getDB();
@@ -108,18 +109,16 @@ switch ($method) {
         break;
 
     case 'POST':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
         $name = trim($input['name'] ?? '');
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
-        $creditLimit = (float)($input['credit_limit'] ?? 0);
+        $creditLimit = 2000;
         $notes = trim($input['notes'] ?? '');
 
         if (empty($name)) jsonResponse(['error' => 'Dealer name is required'], 400);
-        if ($creditLimit < 0) jsonResponse(['error' => 'Credit limit cannot be negative'], 400);
 
         // Check duplicate name
         $check = $db->prepare("SELECT id FROM dealers WHERE name = ?");
@@ -148,9 +147,12 @@ switch ($method) {
         break;
 
     case 'PUT':
-        requireRole(ROLE_ADMIN, ROLE_MANAGER);
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Dealer ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM dealers WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Dealer not found'], 404);
 
         $input = json_decode(file_get_contents('php://input'), true);
 
@@ -158,12 +160,11 @@ switch ($method) {
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
-        $creditLimit = (float)($input['credit_limit'] ?? 0);
+        $creditLimit = 2000;
         $status = $input['status'] ?? 'active';
         $notes = trim($input['notes'] ?? '');
 
         if (empty($name)) jsonResponse(['error' => 'Dealer name is required'], 400);
-        if ($creditLimit < 0) jsonResponse(['error' => 'Credit limit cannot be negative'], 400);
         if (!in_array($status, ['active', 'suspended', 'inactive'])) jsonResponse(['error' => 'Invalid status'], 400);
 
         // Check duplicate name (exclude self)
@@ -189,9 +190,12 @@ switch ($method) {
         break;
 
     case 'DELETE':
-        requireRole(ROLE_ADMIN);
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Dealer ID required'], 400);
+        
+        $checkStmt = $db->prepare("SELECT id FROM dealers WHERE id = ?");
+        $checkStmt->execute([$id]);
+        if (!$checkStmt->fetch()) jsonResponse(['error' => 'Dealer not found'], 404);
 
         // Check for outstanding balance
         $balanceCheck = $db->prepare("SELECT credit_balance FROM dealers WHERE id = ?");

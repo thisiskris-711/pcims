@@ -5,8 +5,7 @@
  */
 require_once dirname(__DIR__, 2) . '/config/app.php';
 requireLogin();
-requireRole(ROLE_ADMIN, ROLE_MANAGER);
-
+requirePermission('manage_products');
 $db = getDB();
 $categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
 
