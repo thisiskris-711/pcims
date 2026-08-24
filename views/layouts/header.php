@@ -159,13 +159,19 @@ $flash = getFlashMessage();
                 </div>
             <?php endif; ?>
 
-            <?php if (hasPermission('manage_users') || hasPermission('manage_roles')): ?>
+            <?php if (hasPermission('manage_users') || hasPermission('manage_roles') || hasRole(ROLE_ADMIN)): ?>
                 <div class="nav-section">
                     <span class="nav-section-title">Administration</span>
                     <a href="<?= APP_URL ?>/users" class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
                         <i data-lucide="users" style="width:20px;height:20px;"></i>
                         <span>Users & Roles</span>
                     </a>
+                    <?php if (hasRole(ROLE_ADMIN)): ?>
+                    <a href="<?= APP_URL ?>/backup" class="nav-link <?= $currentPage === 'backup' ? 'active' : '' ?>">
+                        <i data-lucide="database-backup" style="width:20px;height:20px;"></i>
+                        <span>Backup & Restore</span>
+                    </a>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </nav>

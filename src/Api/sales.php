@@ -132,7 +132,7 @@ switch ($method) {
                     $availableCredit = (float)$dealer['credit_limit'] - (float)$dealer['credit_balance'];
                     $amountToCharge = ($sale['payment_method'] === 'cash&credit') ? max(0, $sale['total'] - $sale['cash_received']) : $sale['total'];
                     if ($amountToCharge > 0 && $amountToCharge > $availableCredit) {
-                        throw new Exception("Credit portion (\${$amountToCharge}) exceeds dealer's available credit (\${$availableCredit}).");
+                        throw new Exception("Insufficient available credit. Sale requires ₱" . number_format($amountToCharge, 2) . ", but dealer only has ₱" . number_format($availableCredit, 2) . " available.");
                     }
                 }
 
@@ -187,7 +187,7 @@ switch ($method) {
                         $newBalance = round((float)$dealer['credit_balance'] + $amountToCharge, 2);
                         $db->prepare("UPDATE dealers SET credit_balance = ? WHERE id = ?")->execute([$newBalance, $sale['dealer_id']]);
 
-                        $creditRef = 'CR-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                        $creditRef = generateCreditReferenceNo('CR');
                         $db->prepare("
                             INSERT INTO credit_transactions (dealer_id, sale_id, type, amount, balance_after, reference_no, notes, created_by)
                             VALUES (?, ?, 'charge', ?, ?, ?, ?, ?)
@@ -267,13 +267,130 @@ switch ($method) {
                 ];
             }
 
-            $discount = $subtotal * 0.25;
-            $taxRate = 12; // 12% VAT
+            // --- 1. Re-calculate Promo/Bundle Discount Backend-side ---
+            $cartProductQty = [];
+            foreach ($validatedItems as $vi) {
+                $cartProductQty[$vi['product_id']] = ($cartProductQty[$vi['product_id']] ?? 0) + $vi['quantity'];
+            }
 
-            $total = round($subtotal - $discount, 2);
+            // Load active bundles & bundle_deal promos
+            $activePromos = $db->query("SELECT * FROM promotions WHERE is_active = 1 AND (start_date IS NULL OR start_date <= CURDATE()) AND (end_date IS NULL OR end_date >= CURDATE())")->fetchAll();
+            $bundlesStmt = $db->query("SELECT p.id as bundle_id, p.name as bundle_name, p.selling_price as bundle_price, pbi.product_id, pbi.quantity as required_qty FROM products p JOIN product_bundle_items pbi ON p.id = pbi.bundle_id WHERE p.type = 'bundle' AND p.status = 'active'");
+            $bundleRows = $bundlesStmt->fetchAll();
+            
+            $activeBundles = [];
+            foreach ($bundleRows as $row) {
+                if (!isset($activeBundles[$row['bundle_id']])) {
+                    $activeBundles[$row['bundle_id']] = ['bundle_id' => $row['bundle_id'], 'name' => $row['bundle_name'], 'bundle_price' => (float)$row['bundle_price'], 'items' => []];
+                }
+                $activeBundles[$row['bundle_id']]['items'][] = ['product_id' => (int)$row['product_id'], 'required_qty' => (int)$row['required_qty']];
+            }
+            $activeBundlesList = array_values($activeBundles);
+            
+            foreach ($activePromos as $promo) {
+                if ($promo['type'] === 'bundle_deal') {
+                    $config = json_decode($promo['config'], true);
+                    if ($config && !empty($config['components'])) {
+                        $items = [];
+                        foreach ($config['components'] as $comp) {
+                            if (str_starts_with($comp['target'], 'product_')) {
+                                $items[] = ['product_id' => (int)str_replace('product_', '', $comp['target']), 'required_qty' => (int)$comp['qty']];
+                            }
+                        }
+                        if (!empty($items)) {
+                            $activeBundlesList[] = ['bundle_id' => 'promo_' . $promo['id'], 'name' => $promo['name'], 'bundle_price' => (float)$config['bundle_price'], 'items' => $items];
+                        }
+                    }
+                }
+            }
+
+            $promoDiscount = 0;
+            $appliedPromos = [];
+            
+            foreach ($activeBundlesList as $bundle) {
+                $possibleSets = PHP_INT_MAX;
+                foreach ($bundle['items'] as $comp) {
+                    $avail = $cartProductQty[$comp['product_id']] ?? 0;
+                    $sets = floor($avail / $comp['required_qty']);
+                    if ($sets < $possibleSets) $possibleSets = $sets;
+                }
+                
+                if ($possibleSets > 0 && $possibleSets !== PHP_INT_MAX) {
+                    $regularComponentTotal = 0;
+                    foreach ($bundle['items'] as $comp) {
+                        foreach ($validatedItems as $vi) {
+                            if ($vi['product_id'] == $comp['product_id']) {
+                                $regularComponentTotal += $vi['unit_price'] * $comp['required_qty'];
+                                break;
+                            }
+                        }
+                        $cartProductQty[$comp['product_id']] -= $comp['required_qty'] * $possibleSets;
+                    }
+                    
+                    $bundleSavings = $regularComponentTotal - $bundle['bundle_price'];
+                    if ($bundleSavings >= 0) {
+                        $promoDiscount += $bundleSavings * $possibleSets;
+                        $appliedPromos[] = $possibleSets . "x " . $bundle['name'] . " (Saved ₱" . number_format($bundleSavings * $possibleSets, 2) . ")";
+                    }
+                }
+            }
+            
+            // Re-calculate category discounts (e.g. buy_x_get_y)
+            foreach ($activePromos as $promo) {
+                if ($promo['type'] === 'category_discount') {
+                    $config = json_decode($promo['config'], true);
+                    if (!$config) continue;
+                    if (($config['rule'] ?? '') === 'buy_x_get_y' && str_starts_with($config['buy_target'] ?? '', 'product_')) {
+                        $pId = (int)str_replace('product_', '', $config['buy_target']);
+                        $buyQty = (int)($config['buy_qty'] ?? 0);
+                        $getQty = (int)($config['get_qty'] ?? 0);
+                        $promoPrice = (float)($config['promo_price'] ?? 0);
+                        
+                        $avail = $cartProductQty[$pId] ?? 0;
+                        if ($avail > 0 && ($buyQty + $getQty) > 0) {
+                            $sets = floor($avail / ($buyQty + $getQty));
+                            if ($sets > 0) {
+                                $unitPrice = 0;
+                                foreach ($validatedItems as $vi) { if ($vi['product_id'] == $pId) { $unitPrice = $vi['unit_price']; break; } }
+                                $savings = ($getQty * $unitPrice) - ($getQty * $promoPrice);
+                                if ($savings > 0) {
+                                    $promoDiscount += $savings * $sets;
+                                    $appliedPromos[] = $sets . "x " . $promo['name'] . " (Saved ₱" . number_format($savings * $sets, 2) . ")";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 2. Dealer Discount & Totals ---
+            $discountedSubtotal = $subtotal - $promoDiscount;
+            $dealerDiscount = $discountedSubtotal * 0.25; // 25% basic discount on all products
+            $totalDiscount = $promoDiscount + $dealerDiscount;
+            
+            // Append breakdown to notes
+            $breakdown = [];
+            if ($promoDiscount > 0) $breakdown[] = "Promo Savings: ₱" . number_format($promoDiscount, 2) . ($appliedPromos ? " [" . implode(", ", $appliedPromos) . "]" : "");
+            if ($dealerDiscount > 0) $breakdown[] = "Dealer Discount (25%): ₱" . number_format($dealerDiscount, 2);
+            if (!empty($breakdown)) {
+                $notes = trim($notes . "\n\n--- Discount Breakdown ---\n" . implode("\n", $breakdown));
+            }
+
+            $taxRate = 12; // 12% VAT
+            $total = round($subtotal - $totalDiscount, 2);
             $netOfVat = $total / 1.12;
             $tax = round($total - $netOfVat, 2);
             $taxableAmount = round($netOfVat, 2);
+            
+            if (in_array($paymentMethod, ['credit', 'cash&credit'])) {
+                $amountToCharge = ($paymentMethod === 'cash&credit') ? max(0, $total - $cashReceived) : $total;
+                if ($amountToCharge > 0) {
+                    $availableCredit = (float)$dealer['credit_limit'] - (float)$dealer['credit_balance'];
+                    if ($amountToCharge > $availableCredit) {
+                        throw new Exception("Insufficient available credit. Sale requires ₱" . number_format($amountToCharge, 2) . ", but dealer only has ₱" . number_format($availableCredit, 2) . " available.");
+                    }
+                }
+            }
 
             $invoiceNo = generateInvoiceNo();
             $paymentStatus = 'pending_approval'; // ALWAYS pending approval
@@ -282,7 +399,7 @@ switch ($method) {
                 INSERT INTO sales (invoice_no, dealer_id, subtotal, discount, tax, total, cash_received, payment_method, payment_status, notes, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $saleStmt->execute([$invoiceNo, $dealerId, $subtotal, $discount, $tax, $total, $cashReceived, $paymentMethod, $paymentStatus, $notes, getCurrentUserId()]);
+            $saleStmt->execute([$invoiceNo, $dealerId, $subtotal, $totalDiscount, $tax, $total, $cashReceived, $paymentMethod, $paymentStatus, $notes, getCurrentUserId()]);
             $saleId = $db->lastInsertId();
 
             foreach ($validatedItems as $vi) {

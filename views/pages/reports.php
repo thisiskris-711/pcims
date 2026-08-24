@@ -55,6 +55,16 @@ include dirname(__DIR__) . '/layouts/header.php';
 <!-- Summary Cards -->
 <div class="stats-grid mb-3" id="reportSummary" style="display:none;"></div>
 
+<!-- Forecast Chart Container -->
+<div class="card" id="forecastChartContainer" style="display:none; margin-bottom:16px;">
+    <div class="card-body">
+        <h4 style="margin:0 0 16px; font-weight: 500; font-size: 1.1rem; color: var(--text-main);">Demand Forecast (Aggr. Next 14 Days)</h4>
+        <div style="height: 250px;">
+            <canvas id="forecastChart"></canvas>
+        </div>
+    </div>
+</div>
+
 <!-- Report Table -->
 <div class="card">
     <div class="card-body" style="padding-top:16px;">
@@ -85,6 +95,12 @@ function switchReportTab(btn, type) {
         document.getElementById('reportFilters').style.display = 'none';
     } else {
         document.getElementById('reportFilters').style.display = '';
+    }
+    
+    if (type === 'forecast') {
+        document.getElementById('forecastChartContainer').style.display = 'block';
+    } else {
+        document.getElementById('forecastChartContainer').style.display = 'none';
     }
     
     // Clear
@@ -128,6 +144,70 @@ function exportReport() {
     window.open(`${APP_URL}/api/reports?action=${currentReport}&date_from=${dateFrom}&date_to=${dateTo}&export=csv`);
 }
 
+function createDraftPO(sku, qty) {
+    window.location.href = `${APP_URL}/purchase-order-form?sku=${sku}&qty=${qty}`;
+}
+
+let forecastChartInstance = null;
+function renderForecastChart(chartData) {
+    if (!chartData) return;
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    
+    if (forecastChartInstance) {
+        forecastChartInstance.destroy();
+    }
+    
+    forecastChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [
+                {
+                    label: 'Historical Demand',
+                    data: chartData.historical,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                },
+                {
+                    label: 'Projected Demand',
+                    data: chartData.projected,
+                    borderColor: '#f59e0b',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.raw === null) return null;
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            label += context.parsed.y + ' units';
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
 function renderReport(data) {
     const thead = document.getElementById('reportHead');
     const tbody = document.getElementById('reportBody');
@@ -159,6 +239,14 @@ function renderReport(data) {
                 summaryEl.innerHTML = `
                     <div class="stat-card emerald"><div class="stat-value">${s.in_count}</div><div class="stat-label">Stock In (${s.in_qty} units)</div></div>
                     <div class="stat-card rose"><div class="stat-value">${s.out_count}</div><div class="stat-label">Stock Out (${s.out_qty} units)</div></div>
+                `;
+                break;
+            case 'forecast':
+                summaryEl.innerHTML = `
+                    <div class="stat-card rose"><div class="stat-value">${s.high_risk_count}</div><div class="stat-label">High Risk Stockouts</div></div>
+                    <div class="stat-card violet"><div class="stat-value">${formatCurrency(s.total_reorder_value)}</div><div class="stat-label">Recommended Reorder Value</div></div>
+                    <div class="stat-card emerald"><div class="stat-value">${s.growing_products}</div><div class="stat-label">Products Growing</div></div>
+                    <div class="stat-card amber"><div class="stat-value">${s.overstock_risks}</div><div class="stat-label">Overstock Risks</div></div>
                 `;
                 break;
             case 'collection_efficiency':
@@ -251,26 +339,42 @@ function renderReport(data) {
             break;
             
         case 'forecast':
-            thead.innerHTML = '<tr><th>SKU</th><th>Product</th><th>Category</th><th>Current Stock</th><th>30-Day Sales</th><th>Avg Daily Sales</th><th>Est. Days Remaining</th><th>Suggested Reorder</th></tr>';
+            thead.innerHTML = '<tr><th>SKU / Product</th><th>Risk Level</th><th>Forecast Demand (30d)</th><th>Confidence</th><th>Suggested Reorder</th><th>Action</th></tr>';
             tbody.innerHTML = rows.map(r => {
-                let daysClass = '';
-                if (r.days_remaining != 999 && r.days_remaining <= 7) daysClass = 'text-danger font-bold';
-                else if (r.days_remaining != 999 && r.days_remaining <= 14) daysClass = 'text-warning font-bold';
-                else if (r.days_remaining == 999) daysClass = 'text-muted';
-                else daysClass = 'text-success';
+                let riskBadge = '';
+                if (r.risk_level === 'Critical') riskBadge = '<span class="badge badge-rose">Critical</span>';
+                else if (r.risk_level === 'High') riskBadge = '<span class="badge badge-amber">High</span>';
+                else if (r.risk_level === 'Medium') riskBadge = '<span class="badge" style="background:#f59e0b15;color:#f59e0b">Medium</span>';
+                else riskBadge = '<span class="badge badge-emerald">Low</span>';
+                
+                let confBadge = '';
+                if (r.confidence === 'High') confBadge = '<span class="badge badge-emerald">High</span>';
+                else if (r.confidence === 'Medium') confBadge = '<span class="badge badge-amber">Medium</span>';
+                else confBadge = '<span class="badge badge-gray">Low</span>';
+                
+                let actionBtn = r.suggested_reorder > 0 ? 
+                    `<button class="btn btn-sm btn-primary" onclick="createDraftPO('${r.sku}', ${r.suggested_reorder})" title="Create Draft PO"><i data-lucide="shopping-cart" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Draft PO</button>` : 
+                    '<span class="text-muted" style="font-size:0.85rem;">No reorder required</span>';
                 
                 return `
                 <tr>
-                    <td><code style="color:var(--accent-cyan);">${r.sku}</code></td>
-                    <td class="font-bold">${escapeHtml(r.name)}</td>
-                    <td class="text-muted">${r.category || '—'}</td>
-                    <td class="font-bold">${r.quantity}</td>
-                    <td>${r.recent_sales}</td>
-                    <td>${r.avg_daily_sales}/day</td>
-                    <td class="${daysClass}">${r.days_remaining == 999 ? '999+' : r.days_remaining + ' days'}</td>
-                    <td class="font-bold text-violet">${r.suggested_reorder > 0 ? r.suggested_reorder : '—'}</td>
+                    <td>
+                        <div class="font-bold">${escapeHtml(r.name)}</div>
+                        <code style="color:var(--accent-cyan);font-size:0.8rem;">${r.sku}</code>
+                    </td>
+                    <td>${riskBadge}</td>
+                    <td class="font-bold">${r.forecast_demand} units</td>
+                    <td>${confBadge}</td>
+                    <td>
+                        <div class="font-bold text-violet" style="font-size:1.1rem;">${r.suggested_reorder > 0 ? r.suggested_reorder : '—'}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);max-width:200px;line-height:1.2;margin-top:4px;">${r.reasoning}</div>
+                    </td>
+                    <td style="vertical-align:middle;">${actionBtn}</td>
                 </tr>`;
             }).join('');
+            
+            if (data.chart) renderForecastChart(data.chart);
+            if (window.lucide) setTimeout(() => lucide.createIcons(), 0);
             break;
             
         case 'collection_efficiency':

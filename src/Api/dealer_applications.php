@@ -144,7 +144,7 @@ $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
                     trim($input['email'] ?? ''), 
                     $phone, 
                     $address, 
-                    2000, 
+                    DEFAULT_CREDIT_LIMIT, 
                     'Added manually via application form', 
                     getCurrentUserId()
                 ]);
@@ -201,7 +201,7 @@ $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
                     $application['email'], 
                     $application['phone'], 
                     $address, 
-                    2000, 
+                    DEFAULT_CREDIT_LIMIT, 
                     'Approved application', 
                     getCurrentUserId()
                 ]);

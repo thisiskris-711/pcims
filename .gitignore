@@ -20,3 +20,6 @@ uploads/products/*
 
 # Composer dependencies
 vendor/
+
+# Backups
+/backups/

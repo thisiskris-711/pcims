@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS `stock_transactions` (
   KEY `idx_product` (`product_id`),
   KEY `idx_type` (`type`),
   KEY `idx_created_at` (`created_at`),
-  CONSTRAINT `fk_stock_product` FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_stock_product` FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_stock_creator` FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS `sale_items` (
   KEY `idx_sale` (`sale_id`),
   KEY `idx_product` (`product_id`),
   CONSTRAINT `fk_items_sale` FOREIGN KEY (`sale_id`) REFERENCES `sales`(`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_items_product` FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_items_product` FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------

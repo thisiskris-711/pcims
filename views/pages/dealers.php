@@ -16,23 +16,34 @@ include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <!-- Tabs -->
-<div class="tabs-container" style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color);">
-    <button class="btn tab-btn active" id="tabDealers" onclick="switchTab('dealers')" style="background: none; border: none; padding: 10px 20px; border-bottom: 2px solid var(--primary-color); font-weight: 600;">Dealers</button>
-    <button class="btn tab-btn" id="tabApplications" onclick="switchTab('applications')" style="background: none; border: none; padding: 10px 20px; color: var(--text-muted); font-weight: 500;">Pending Applications</button>
+<div class="tabs-container" style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; display:flex; gap: 8px;">
+    <button class="btn tab-btn active" id="tabDealers" onclick="switchTab('dealers')" style="background: none; border: none; padding: 12px 24px; border-bottom: 2px solid var(--primary-color); font-weight: 600; font-size: 0.95rem; color: var(--primary-color);">Dealers</button>
+    <button class="btn tab-btn" id="tabApplications" onclick="switchTab('applications')" style="background: none; border: none; padding: 12px 24px; color: var(--text-muted); font-weight: 500; font-size: 0.95rem;">Pending Applications <span id="pendingAppCount" style="margin-left: 6px; background: var(--bg-tertiary); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">0</span></button>
 </div>
 
-<!-- Toolbar -->
-<div class="toolbar" id="toolbarDealers">
-    <div class="toolbar-left">
-        <div class="search-bar">
+<div class="toolbar" id="toolbarDealers" style="margin-bottom: 16px;">
+    <div class="toolbar-left" style="gap: 12px; flex-wrap: wrap;">
+        <div class="search-bar" style="min-width: 250px;">
             <span class="search-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></span>
-            <input type="text" class="form-control" id="dealerSearch" placeholder="Search by name, code, or contact...">
+            <input type="text" class="form-control" id="dealerSearch" placeholder="Search dealers...">
         </div>
         <select class="form-control" id="statusFilter" style="width:auto;min-width:140px;">
             <option value="">All Status</option>
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
             <option value="inactive">Inactive</option>
+        </select>
+        <select class="form-control" id="creditStatusFilter" style="width:auto;min-width:160px;">
+            <option value="">All Credit Status</option>
+            <option value="no_outstanding">No Outstanding</option>
+            <option value="outstanding">Has Outstanding</option>
+            <option value="near_limit">Near Credit Limit</option>
+        </select>
+        <select class="form-control" id="sortFilter" style="width:auto;min-width:140px;">
+            <option value="name">Sort by Name</option>
+            <option value="outstanding">Sort by Outstanding</option>
+            <option value="utilization">Sort by Utilization</option>
+            <option value="sales">Sort by Sales</option>
         </select>
     </div>
     <div class="toolbar-right">
@@ -46,24 +57,22 @@ include dirname(__DIR__) . '/layouts/header.php';
 
 
 <!-- Dealers Table -->
-<div class="card" id="cardDealers">
-    <div class="card-body" style="padding-top:16px;">
-        <div class="table-wrapper">
-            <table>
-                <thead>
+<div id="cardDealers" style="background:#fff; border: 1px solid #e5e7eb; border-radius: var(--border-radius-sm); box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 24px;">
+    <div style="padding: 0;">
+        <div class="table-wrapper" style="border:none; border-radius: var(--border-radius-sm);">
+            <table style="margin:0;">
+                <thead style="background: #f9fafb;">
                     <tr>
-                        <th>Code</th>
-                        <th>Dealer Name</th>
-                        <th>Phone</th>
-                        <th>Credit Limit</th>
-                        <th>Outstanding</th>
-                        <th>Status</th>
-                        <th>Sales</th>
-                        <th style="width:140px;">Actions</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">Dealer</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; width: 140px;">Phone</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; width: 220px;">Credit Status</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; width: 120px;">Status</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; width: 100px;">Sales</th>
+                        <th style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; width: 140px; text-align:right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="dealersBody">
-                    <tr><td colspan="9" class="text-center text-muted" style="padding:40px;">Loading...</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted" style="padding:40px;">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -263,29 +272,89 @@ include dirname(__DIR__) . '/layouts/header.php';
 
 <?php if ($canRecordPayment): ?>
 <!-- Record Payment Modal -->
-<div class="modal" id="paymentModal">
+<div class="modal modal-lg" id="paymentModal">
     <div class="modal-header">
         <h3 class="modal-title">Record Payment</h3>
         <button class="modal-close" onclick="closeModal('paymentModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
     </div>
-    <div class="modal-body">
-        <div id="paymentDealerInfo" style="background:var(--bg-tertiary);border-radius:var(--border-radius-sm);padding:12px;margin-bottom:16px;"></div>
+    <div class="modal-body" style="background:#f9fafb;">
+        <div id="paymentDealerInfo" style="background:#fff;border:1px solid #e5e7eb;border-radius:var(--border-radius-sm);padding:16px;margin-bottom:16px;"></div>
         <form id="paymentForm" onsubmit="processPayment(event)">
             <input type="hidden" id="paymentDealerId" value="">
-            <div class="form-group">
-                <label class="form-label" for="paymentAmount">Payment Amount (₱) *</label>
-                <input type="number" class="form-control" id="paymentAmount" required min="0.01" step="0.01" placeholder="0.00">
+            
+            <h4 style="margin-top:0;margin-bottom:12px;font-size:0.95rem;color:var(--text-secondary);border-bottom:1px solid #e5e7eb;padding-bottom:8px;">Unpaid Invoices</h4>
+            <div id="paymentInvoicesContainer" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px; background:#fff; border:1px solid #e5e7eb; border-radius:var(--border-radius-sm);">
+                <table style="margin:0; border:none; box-shadow:none;">
+                    <thead style="position: sticky; top: 0; background: #f3f4f6; z-index: 1;">
+                        <tr>
+                            <th style="padding: 10px 12px; border-bottom:1px solid #e5e7eb;">Invoice</th>
+                            <th style="padding: 10px 12px; border-bottom:1px solid #e5e7eb;">Due Date</th>
+                            <th style="padding: 10px 12px; border-bottom:1px solid #e5e7eb;">Status</th>
+                            <th style="padding: 10px 12px; border-bottom:1px solid #e5e7eb; text-align:right;">Balance</th>
+                            <th style="padding: 10px 12px; border-bottom:1px solid #e5e7eb; width: 140px;">Payment</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentInvoicesBody">
+                        <tr><td colspan="5" class="text-center text-muted" style="padding:20px;">Loading invoices...</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="paymentNotes">Notes</label>
-                <textarea class="form-control" id="paymentNotes" rows="2" placeholder="Payment reference or notes"></textarea>
+
+            <div class="form-row" style="align-items: flex-end;">
+                <div class="form-group" style="flex:2">
+                    <label class="form-label" for="paymentReference">Payment Reference</label>
+                    <input type="text" class="form-control" id="paymentReference" placeholder="e.g. OR-000123 / bank reference">
+                </div>
+                <div class="form-group" style="flex:1; text-align:right;">
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">Total Payment</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:var(--primary-color);">
+                        ₱<span id="paymentAmountDisplay">0.00</span>
+                    </div>
+                    <input type="hidden" id="paymentAmount" value="0">
+                </div>
+                <div class="form-group" style="flex:1; text-align:right;">
+                    <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">Remaining Balance</div>
+                    <div style="font-size:1.4rem; font-weight:700; color:var(--warning-color);" id="remainingBalanceDisplay">
+                        ₱0.00
+                    </div>
+                </div>
             </div>
         </form>
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('paymentModal')">Cancel</button>
-        <button class="btn btn-success" onclick="document.getElementById('paymentForm').requestSubmit()">
+        <button class="btn btn-success" id="btnSubmitPayment" disabled onclick="document.getElementById('paymentForm').requestSubmit()">
             <i data-lucide="check-circle" style="width:16px;height:16px;"></i> Record Payment
+        </button>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
+<!-- Create Credit Memo Modal -->
+<div class="modal" id="memoModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Create Credit Memo</h3>
+        <button class="modal-close" onclick="closeModal('memoModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body">
+        <div id="memoDealerInfo" style="background:var(--bg-tertiary);border-radius:var(--border-radius-sm);padding:12px;margin-bottom:16px;"></div>
+        <form id="memoForm" onsubmit="submitMemo(event)">
+            <input type="hidden" id="memoDealerId" value="">
+            <div class="form-group">
+                <label class="form-label" for="memoAmount">Amount (₱) *</label>
+                <input type="number" class="form-control" id="memoAmount" required min="0.01" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="memoReason">Reason *</label>
+                <input type="text" class="form-control" id="memoReason" required placeholder="e.g., Promotional rebate">
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('memoModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="document.getElementById('memoForm').requestSubmit()">
+            <i data-lucide="check" style="width:16px;height:16px;"></i> Create Memo
         </button>
     </div>
 </div>

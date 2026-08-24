@@ -68,8 +68,33 @@ function generateInvoiceNo(): string {
  * Generate stock reference number
  */
 function generateReferenceNo(string $type = 'ST'): string {
+    $db = getDB();
     $prefix = $type === 'in' ? 'PO' : ($type === 'out' ? 'SO' : 'ADJ');
-    return $prefix . '-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+    $year = date('Y');
+    
+    $stmt = $db->prepare("SELECT COUNT(*) + 1 FROM stock_transactions WHERE YEAR(created_at) = ? AND type = ?");
+    $stmt->execute([$year, $type]);
+    $seq = $stmt->fetchColumn();
+    
+    // Add microsecond fallback to prevent rare race condition collisions
+    $micro = substr(microtime(false), 2, 4);
+    return $prefix . '-' . $year . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT) . '-' . $micro;
+}
+
+/**
+ * Generate credit reference number
+ */
+function generateCreditReferenceNo(string $prefix = 'PAY'): string {
+    $db = getDB();
+    $year = date('Y');
+    
+    $stmt = $db->prepare("SELECT COUNT(*) + 1 FROM credit_transactions WHERE YEAR(created_at) = ? AND type = ?");
+    $type = $prefix === 'PAY' ? 'payment' : 'charge';
+    $stmt->execute([$year, $type]);
+    $seq = $stmt->fetchColumn();
+    
+    $micro = substr(microtime(false), 2, 4);
+    return $prefix . '-' . $year . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT) . '-' . $micro;
 }
 
 /**

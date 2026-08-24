@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Products API
  * GET    — List/search products
@@ -119,26 +120,45 @@ switch ($method) {
 
                 $regularPrice = 0;
                 $missingProducts = [];
+                $bundleProducts = [];
+                $totalPresentQty = 0;
                 foreach ($components as $comp) {
                     $regularPrice += floatval($comp['selling_price']) * $comp['required_qty'];
-                    if (!in_array($comp['product_id'], $cartIds)) {
-                        $missingProducts[] = $comp;
+                    $cartQty = intval($_GET['cart_qty'][$comp['product_id']] ?? 0);
+                    $missingQty = max(0, $comp['required_qty'] - $cartQty);
+                    $compObj = [
+                        'product_id' => $comp['product_id'],
+                        'name' => $comp['name'],
+                        'required_qty' => $comp['required_qty'],
+                        'cart_qty' => $cartQty,
+                        'missing_qty' => $missingQty,
+                        'selling_price' => floatval($comp['selling_price']),
+                        'stock' => intval($comp['stock'])
+                    ];
+                    $bundleProducts[] = $compObj;
+                    
+                    if ($cartQty < $comp['required_qty']) {
+                        $missingProducts[] = $compObj;
+                    }
+                    if ($cartQty > 0) {
+                        $totalPresentQty += $cartQty;
                     }
                 }
 
-                // Only suggest if some items are in cart but bundle isn't complete
-                if (!empty($missingProducts) && count($missingProducts) < count($components)) {
+                // Suggest if some items are in cart. If missingProducts is empty, it's fully qualified!
+                if ($totalPresentQty > 0) {
                     $savings = $regularPrice - floatval($bundle['bundle_price']);
-                    if ($savings > 0) {
+                    if ($savings >= 0) {
                         $bundles[] = [
                             'bundle_id' => $bundle['bundle_id'],
                             'name' => $bundle['bundle_name'],
                             'image' => $bundle['image'],
-                            'products' => $components,
+                            'products' => $bundleProducts,
                             'missing_products' => $missingProducts,
                             'regular_price' => $regularPrice,
                             'bundle_price' => floatval($bundle['bundle_price']),
                             'savings' => $savings,
+                            'qualified' => empty($missingProducts)
                         ];
                     }
                 }
@@ -174,104 +194,114 @@ switch ($method) {
             // Receive subtotal from query param (calculated client-side)
             $cartSubtotal = floatval($_GET['cart_subtotal'] ?? 0);
 
-            
+
             $promotions = [];
             foreach ($activePromos as $promo) {
                 $config = json_decode($promo['config'], true);
                 if (!$config) continue;
-                
+
                 $suggestInPos = isset($config['suggest_in_pos']) ? $config['suggest_in_pos'] : true;
                 if (!$suggestInPos) continue; // Skip if not meant for POS recommendation
-                
+
                 $priority = $config['priority'] ?? 'normal';
-                
+
                 if ($promo['type'] === 'bundle_deal' && !empty($config['components'])) {
-                    // Evaluate dynamic bundle
                     $regularPrice = 0;
-                    $missingItems = [];
-                    $totalRequired = 0;
-                    $totalPresent = 0;
+                    $missingProducts = [];
+                    $bundleProducts = [];
                     
+                    // Pre-fetch product data for components
+                    $compIds = [];
                     foreach ($config['components'] as $comp) {
-                        $qty = intval($comp['qty']);
-                        $totalRequired += $qty;
-                        $target = $comp['target']; // e.g. "product_1" or "category_2"
-                        
-                        if (str_starts_with($target, 'product_')) {
-                            $pId = intval(str_replace('product_', '', $target));
-                            $cartQty = intval($_GET['cart_qty'][$pId] ?? 0);
-                            
-                            // Find product price
-                            // (In a real scenario we query this, here we just check if it's in cart)
-                            
-                            if ($cartQty < $qty) {
-                                $missingItems[] = ['target' => $target, 'needed' => $qty - $cartQty];
-                            } else {
-                                $totalPresent += $qty;
-                            }
-                        } elseif (str_starts_with($target, 'category_')) {
-                            $cId = intval(str_replace('category_', '', $target));
-                            // Count cart items in this category
-                            $catCartQty = 0;
-                            foreach ($cartCategories as $cc) {
-                                if ($cc['category_id'] == $cId) {
-                                    $catCartQty = $cc['count']; // Wait, the count query sums rows, not quantities!
-                                    // Actually, we need sum of quantities in that category.
-                                }
-                            }
-                            if ($catCartQty < $qty) {
-                                $missingItems[] = ['target' => $target, 'needed' => $qty - $catCartQty];
-                            } else {
-                                $totalPresent += $qty;
-                            }
+                        if (str_starts_with($comp['target'], 'product_')) {
+                            $compIds[] = intval(str_replace('product_', '', $comp['target']));
                         }
                     }
                     
-                    if (count($missingItems) > 0 && $totalPresent > 0) {
-                        $promotions[] = [
-                            'id' => $promo['id'],
-                            'type' => 'bundle_deal',
-                            'label' => 'Bundle Available',
-                            'description' => "Add missing items to get this bundle for ₱" . number_format($config['bundle_price'], 2),
-                            'qualified' => false,
-                            'priority' => $priority
-                        ];
-                    } elseif (count($missingItems) == 0) {
-                        $promotions[] = [
-                            'id' => $promo['id'],
-                            'type' => 'bundle_deal',
-                            'label' => 'Bundle Qualified!',
-                            'description' => "You qualify for bundle price ₱" . number_format($config['bundle_price'], 2),
-                            'qualified' => true,
-                            'priority' => $priority
-                        ];
+                    $totalPresentQty = 0;
+                    if (!empty($compIds)) {
+                        $placeholders = implode(',', array_fill(0, count($compIds), '?'));
+                        $stmt = $db->prepare("SELECT id, name, selling_price, image, quantity as stock FROM products WHERE id IN ($placeholders)");
+                        $stmt->execute($compIds);
+                        $compProductsData = [];
+                        while ($row = $stmt->fetch()) {
+                            $compProductsData[$row['id']] = $row;
+                        }
+                        
+                        foreach ($config['components'] as $comp) {
+                            if (!str_starts_with($comp['target'], 'product_')) continue;
+                            $pId = intval(str_replace('product_', '', $comp['target']));
+                            $qty = intval($comp['qty']);
+                            
+                            if (!isset($compProductsData[$pId])) continue;
+                            $prod = $compProductsData[$pId];
+                            
+                            $regularPrice += (float)$prod['selling_price'] * $qty;
+                            $cartQty = intval($_GET['cart_qty'][$pId] ?? 0);
+                            $missingQty = max(0, $qty - $cartQty);
+                            $compObj = [
+                                'product_id' => $pId,
+                                'name' => $prod['name'],
+                                'required_qty' => $qty,
+                                'cart_qty' => $cartQty,
+                                'missing_qty' => $missingQty,
+                                'selling_price' => floatval($prod['selling_price']),
+                                'stock' => intval($prod['stock'])
+                            ];
+                            $bundleProducts[] = $compObj;
+                            
+                            if ($cartQty < $qty) {
+                                $missingProducts[] = $compObj;
+                            }
+                            if ($cartQty > 0) {
+                                $totalPresentQty += $cartQty;
+                            }
+                        }
+
+                        // Suggest if some items are in cart
+                        if ($totalPresentQty > 0) {
+                            $savings = $regularPrice - floatval($config['bundle_price']);
+                            if ($savings >= 0) {
+                                $bundles[] = [
+                                    'bundle_id' => 'promo_' . $promo['id'],
+                                    'name' => $promo['name'],
+                                    'image' => null,
+                                    'products' => $bundleProducts,
+                                    'missing_products' => $missingProducts,
+                                    'regular_price' => $regularPrice,
+                                    'bundle_price' => floatval($config['bundle_price']),
+                                    'savings' => $savings,
+                                    'qualified' => empty($missingProducts)
+                                ];
+                            }
+                        }
                     }
                 }
-                
+
                 if ($promo['type'] === 'category_discount') {
                     $rule = $config['rule'] ?? '';
                     $buyQty = intval($config['buy_qty'] ?? 0);
                     $getQty = intval($config['get_qty'] ?? 0);
                     $promoPrice = floatval($config['promo_price'] ?? 0);
                     $buyTarget = $config['buy_target'] ?? '';
-                    
+
                     if (!$rule || !$buyTarget) continue;
-                    
+
                     // Simple evaluation for buy_target product
                     if (str_starts_with($buyTarget, 'product_')) {
                         $pId = intval(str_replace('product_', '', $buyTarget));
                         $cartQty = intval($_GET['cart_qty'][$pId] ?? 0);
-                        
+
                         if ($cartQty > 0) {
                             $sets = floor($cartQty / ($buyQty + $getQty));
                             $remainder = $cartQty % ($buyQty + $getQty);
-                            
+
                             if ($remainder > 0 && $remainder < $buyQty) {
                                 $promotions[] = [
                                     'id' => $promo['id'],
                                     'type' => 'category_discount',
                                     'label' => "Promo Available",
-                                    'description' => "Add " . ($buyQty - $remainder) . " more to qualify for promo.",
+                                    'description' => "Buy " . ($buyQty - $remainder) . " more to qualify for ₱" . number_format($promoPrice, 2) . " promo.",
                                     'qualified' => false,
                                     'priority' => $priority
                                 ];
@@ -280,7 +310,7 @@ switch ($method) {
                                     'id' => $promo['id'],
                                     'type' => 'category_discount',
                                     'label' => 'Promo Unlocked!',
-                                    'description' => "You qualify! Add " . (($buyQty + $getQty) - $remainder) . " more for ₱" . number_format($promoPrice, 2),
+                                    'description' => "You qualify! Add " . (($buyQty + $getQty) - $remainder) . " more to claim ₱" . number_format($promoPrice, 2) . " promo.",
                                     'qualified' => true,
                                     'priority' => $priority
                                 ];
@@ -298,6 +328,55 @@ switch ($method) {
                     }
                 }
             }
+            
+            // Attach active promos to recommendations and bundles for cart badging
+            $promoStmt2 = $db->query("
+                SELECT name, description, config, type, start_date, end_date
+                FROM promotions 
+                WHERE is_active = 1
+                  AND (start_date IS NULL OR start_date <= CURDATE())
+                  AND (end_date IS NULL OR end_date >= CURDATE())
+            ");
+            $activePromos2 = $promoStmt2->fetchAll(PDO::FETCH_ASSOC);
+
+            $attachPromoToArr = function(&$arr) use ($activePromos2) {
+                foreach ($arr as &$p) {
+                    foreach ($activePromos2 as $promo) {
+                        $config = json_decode($promo['config'], true);
+                        if (!$config) continue;
+                        $isMatch = false;
+                        if (isset($config['buy_target']) && $config['buy_target'] === 'product_' . $p['id']) $isMatch = true;
+                        if (isset($config['get_target']) && $config['get_target'] === 'product_' . $p['id']) $isMatch = true;
+                        if (isset($config['buy_target']) && isset($p['category_id']) && $config['buy_target'] === 'category_' . $p['category_id']) $isMatch = true;
+                        if ($promo['type'] === 'bundle_deal' && !empty($config['components'])) {
+                            foreach ($config['components'] as $comp) {
+                                if (isset($comp['target']) && ($comp['target'] === 'product_' . $p['id'] || (isset($p['category_id']) && $comp['target'] === 'category_' . $p['category_id']))) {
+                                    $isMatch = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($isMatch) {
+                            $validity = '';
+                            if ($promo['start_date'] && $promo['end_date']) {
+                                $validity = " (Valid: " . date('M j', strtotime($promo['start_date'])) . " to " . date('M j, Y', strtotime($promo['end_date'])) . ")";
+                            } elseif ($promo['end_date']) {
+                                $validity = " (Valid until " . date('M j, Y', strtotime($promo['end_date'])) . ")";
+                            } elseif ($promo['start_date']) {
+                                $validity = " (Valid from " . date('M j, Y', strtotime($promo['start_date'])) . ")";
+                            }
+                            
+                            $p['active_promo'] = $promo['name'];
+                            $p['promo_desc'] = ($promo['description'] ?: $promo['name']) . $validity;
+                            break;
+                        }
+                    }
+                }
+            };
+            
+            $attachPromoToArr($recommendations);
+            $attachPromoToArr($bundles);
+
             jsonResponse([
                 'recommendations' => $recommendations,
                 'bundles' => $bundles,
@@ -311,26 +390,26 @@ switch ($method) {
         $filter = $_GET['filter'] ?? '';
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
-        
+
         $where = "1=1";
         $params = [];
-        
+
         if ($search) {
             $where .= " AND (p.name LIKE ? OR p.sku LIKE ? OR p.barcode LIKE ?)";
             $searchTerm = "%$search%";
             $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm]);
         }
-        
+
         if ($category) {
             $where .= " AND p.category_id = ?";
             $params[] = $category;
         }
-        
+
         if ($status) {
             $where .= " AND p.status = ?";
             $params[] = $status;
         }
-        
+
         if ($filter === 'low_stock') {
             $where .= " AND p.quantity <= p.low_stock_threshold AND p.status = 'active'";
         } elseif ($filter === 'expiring_soon') {
@@ -338,14 +417,14 @@ switch ($method) {
         } elseif ($filter === 'expired') {
             $where .= " AND p.expiry_date IS NOT NULL AND p.expiry_date < CURDATE()";
         }
-        
+
         // Count
         $countStmt = $db->prepare("SELECT COUNT(*) FROM products p WHERE $where");
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
         $totalPages = max(1, ceil($total / $perPage));
         $offset = ($page - 1) * $perPage;
-        
+
         // Fetch
         $stmt = $db->prepare("
             SELECT p.*, c.name as category_name, c.color as category_color, u.full_name as creator_name
@@ -358,19 +437,59 @@ switch ($method) {
         ");
         $stmt->execute($params);
         $products = $stmt->fetchAll();
-        
-        // Dynamically calculate stock for bundles
+
+        // Fetch active promotions for badge indicators on the main grid
+        $promoStmt3 = $db->query("
+            SELECT name, description, config, type, start_date, end_date
+            FROM promotions 
+            WHERE is_active = 1
+              AND (start_date IS NULL OR start_date <= CURDATE())
+              AND (end_date IS NULL OR end_date >= CURDATE())
+        ");
+        $activePromos3 = $promoStmt3->fetchAll(PDO::FETCH_ASSOC);
+
+        // Dynamically calculate stock for bundles and attach promos
         foreach ($products as &$p) {
+            foreach ($activePromos3 as $promo) {
+                $config = json_decode($promo['config'], true);
+                if (!$config) continue;
+                $isMatch = false;
+                if (isset($config['buy_target']) && $config['buy_target'] === 'product_' . $p['id']) $isMatch = true;
+                if (isset($config['get_target']) && $config['get_target'] === 'product_' . $p['id']) $isMatch = true;
+                if (isset($config['buy_target']) && isset($p['category_id']) && $config['buy_target'] === 'category_' . $p['category_id']) $isMatch = true;
+                if ($promo['type'] === 'bundle_deal' && !empty($config['components'])) {
+                    foreach ($config['components'] as $comp) {
+                        if (isset($comp['target']) && ($comp['target'] === 'product_' . $p['id'] || (isset($p['category_id']) && $comp['target'] === 'category_' . $p['category_id']))) {
+                            $isMatch = true;
+                            break;
+                        }
+                    }
+                }
+                if ($isMatch) {
+                    $validity = '';
+                    if ($promo['start_date'] && $promo['end_date']) {
+                        $validity = " (Valid: " . date('M j', strtotime($promo['start_date'])) . " to " . date('M j, Y', strtotime($promo['end_date'])) . ")";
+                    } elseif ($promo['end_date']) {
+                        $validity = " (Valid until " . date('M j, Y', strtotime($promo['end_date'])) . ")";
+                    } elseif ($promo['start_date']) {
+                        $validity = " (Valid from " . date('M j, Y', strtotime($promo['start_date'])) . ")";
+                    }
+                    
+                    $p['active_promo'] = $promo['name'];
+                    $p['promo_desc'] = ($promo['description'] ?: $promo['name']) . $validity;
+                    break;
+                }
+            }
             if (isset($p['type']) && $p['type'] === 'bundle') {
                 $compStmt = $db->prepare("
-                    SELECT pbi.quantity as required_qty, cp.quantity as available_qty
+                    SELECT pbi.quantity as required_qty, cp.quantity as available_qty, cp.name as product_name
                     FROM product_bundle_items pbi
                     JOIN products cp ON pbi.product_id = cp.id
                     WHERE pbi.bundle_id = ?
                 ");
                 $compStmt->execute([$p['id']]);
                 $components = $compStmt->fetchAll();
-                
+
                 $maxBundles = null;
                 foreach ($components as $c) {
                     $possible = floor($c['available_qty'] / $c['required_qty']);
@@ -379,15 +498,13 @@ switch ($method) {
                     }
                 }
                 $p['quantity'] = $maxBundles ?? 0;
-                
-                // Fetch components to return if requested or for general info
-                if (isset($_GET['action']) && $_GET['action'] === 'detail') {
-                     $p['components'] = $components; // We could enrich this with names if needed
-                }
+
+                // Always fetch components so POS can display them
+                $p['components'] = $components;
             }
         }
         unset($p);
-        
+
         jsonResponse([
             'data' => $products,
             'total' => $total,
@@ -396,18 +513,31 @@ switch ($method) {
             'per_page' => $perPage,
         ]);
         break;
-        
+
     case 'POST':
         requirePermission('manage_products');
         $action = $_GET['action'] ?? '';
-        
+
         if ($action === 'bulk_delete') {
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $ids = $data['ids'] ?? [];
             if (empty($ids) || !is_array($ids)) jsonResponse(['error' => 'No products selected'], 400);
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
             
+            // Check for existing sales or stock records before deleting
+            $checkStmt = $db->prepare("
+                SELECT product_id FROM sale_items WHERE product_id IN ($placeholders)
+                UNION
+                SELECT product_id FROM stock_transactions WHERE product_id IN ($placeholders)
+                LIMIT 1
+            ");
+            $checkStmt->execute(array_merge($ids, $ids));
+            if ($checkStmt->fetch()) {
+                jsonResponse(['error' => 'Cannot delete these products because they have existing stock or sales records. Consider making them Inactive instead.'], 400);
+            }
+
             try {
-                $placeholders = implode(',', array_fill(0, count($ids), '?'));
                 $stmt = $db->prepare("DELETE FROM products WHERE id IN ($placeholders)");
                 $stmt->execute($ids);
                 jsonResponse(['success' => true, 'message' => count($ids) . ' products deleted successfully']);
@@ -418,15 +548,15 @@ switch ($method) {
                 jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
             }
         }
-        
+
         if ($action === 'bulk_category') {
             $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $ids = $data['ids'] ?? [];
             $categoryId = $data['category_id'] ?? null;
             if ($categoryId === 'NULL') $categoryId = null;
-            
+
             if (empty($ids) || !is_array($ids)) jsonResponse(['error' => 'No products selected'], 400);
-            
+
             try {
                 $placeholders = implode(',', array_fill(0, count($ids), '?'));
                 $params = array_merge([$categoryId], $ids);
@@ -437,7 +567,7 @@ switch ($method) {
                 jsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
             }
         }
-        
+
         $name = trim($_POST['name'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $categoryId = $_POST['category_id'] ?: null;
@@ -448,11 +578,11 @@ switch ($method) {
         $barcode = trim($_POST['barcode'] ?? '');
         $status = $_POST['status'] ?? 'active';
         $expiryDate = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] : null;
-        
+
         if (empty($name)) {
             jsonResponse(['error' => 'Product name is required'], 400);
         }
-        
+
         // Generate SKU
         $prefix = 'GN';
         if ($categoryId) {
@@ -462,40 +592,40 @@ switch ($method) {
             if ($catResult) $prefix = getCategoryPrefix($catResult);
         }
         $sku = generateSKU($prefix);
-        
+
         // Handle image upload
         $image = null;
         if (!empty($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
             $image = handleImageUpload($_FILES['image']);
         }
-        
+
         $stmt = $db->prepare("
             INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, expiry_date, status, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $quantity, $lowStockThreshold, $image, $barcode, $expiryDate, $status, getCurrentUserId()]);
-        
+
         $productId = $db->lastInsertId();
-        
+
         // Log initial stock if quantity > 0
         if ($quantity > 0) {
             $ref = generateReferenceNo('in');
             $stStmt = $db->prepare("INSERT INTO stock_transactions (product_id, type, quantity, balance_after, reference_no, notes, created_by) VALUES (?, 'in', ?, ?, ?, 'Initial stock', ?)");
             $stStmt->execute([$productId, $quantity, $quantity, $ref, getCurrentUserId()]);
         }
-        
+
         jsonResponse(['success' => true, 'message' => 'Product created successfully', 'id' => $productId]);
         break;
-        
+
     case 'PUT':
         requirePermission('manage_products');
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Product ID required'], 400);
-        
+
         $checkStmt = $db->prepare("SELECT id FROM products WHERE id = ?");
         $checkStmt->execute([$id]);
         if (!$checkStmt->fetch()) jsonResponse(['error' => 'Product not found'], 404);
-        
+
         // Parse PUT data
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         if (strpos($contentType, 'application/json') !== false) {
@@ -503,10 +633,10 @@ switch ($method) {
         } else {
             parse_str(file_get_contents('php://input'), $input);
         }
-        
+
         $fields = [];
         $values = [];
-        
+
         $allowedFields = ['name', 'description', 'category_id', 'cost_price', 'selling_price', 'low_stock_threshold', 'barcode', 'expiry_date', 'status'];
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
@@ -514,41 +644,54 @@ switch ($method) {
                 $values[] = $input[$field] === '' ? null : $input[$field];
             }
         }
-        
+
         if (empty($fields)) jsonResponse(['error' => 'No fields to update'], 400);
-        
+
         $values[] = $id;
         $stmt = $db->prepare("UPDATE products SET " . implode(', ', $fields) . ", updated_at = NOW() WHERE id = ?");
         $stmt->execute($values);
-        
+
         // A threshold or status update might trigger an alert
         processLowStockAlerts($db);
-        
+
         jsonResponse(['success' => true, 'message' => 'Product updated successfully']);
         break;
-        
+
     case 'DELETE':
         requirePermission('manage_products');
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Product ID required'], 400);
-        
+
+        // Check for existing sales or stock records before deleting
+        $salesCheckStmt = $db->prepare("SELECT COUNT(*) FROM sale_items WHERE product_id = ?");
+        $salesCheckStmt->execute([$id]);
+        if ($salesCheckStmt->fetchColumn() > 0) {
+            jsonResponse(['error' => 'Cannot delete this product because it has existing sales records. Consider making it Inactive instead.'], 400);
+        }
+
+        $stockCheckStmt = $db->prepare("SELECT COUNT(*) FROM stock_transactions WHERE product_id = ?");
+        $stockCheckStmt->execute([$id]);
+        if ($stockCheckStmt->fetchColumn() > 0) {
+            jsonResponse(['error' => 'Cannot delete this product because it has existing stock records. Consider making it Inactive instead.'], 400);
+        }
+
         // Get image to delete
         $stmt = $db->prepare("SELECT image FROM products WHERE id = ?");
         $stmt->execute([$id]);
         $product = $stmt->fetch();
-        
+
         if (!$product) jsonResponse(['error' => 'Product not found'], 404);
-        
+
         if ($product['image']) {
             deleteUploadedFile($product['image']);
         }
-        
+
         $stmt = $db->prepare("DELETE FROM products WHERE id = ?");
         $stmt->execute([$id]);
-        
+
         jsonResponse(['success' => true, 'message' => 'Product deleted successfully']);
         break;
-        
+
     default:
         jsonResponse(['error' => 'Method not allowed'], 405);
 }

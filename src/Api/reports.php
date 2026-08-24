@@ -122,43 +122,197 @@ try {
         $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
         $offset = ($page - 1) * $perPage;
 
-        $baseQuery = "
-            SELECT 
-                p.sku, 
-                p.name, 
-                c.name as category, 
-                p.quantity, 
-                COALESCE(SUM(si.quantity), 0) as recent_sales,
-                ROUND(COALESCE(SUM(si.quantity), 0) / 30, 2) as avg_daily_sales,
-                CASE 
-                    WHEN COALESCE(SUM(si.quantity), 0) > 0 
-                    THEN ROUND(p.quantity / (SUM(si.quantity) / 30), 1)
-                    ELSE 999 
-                END as days_remaining,
-                CASE
-                    WHEN COALESCE(SUM(si.quantity), 0) > 0 
-                    THEN GREATEST(0, CEIL((SUM(si.quantity) / 30) * 30) - p.quantity)
-                    ELSE 0
-                END as suggested_reorder
+        $stmt = $db->query("
+            SELECT p.id, p.sku, p.name, c.name as category, p.quantity, p.cost_price,
+                   COALESCE(rs.sales_7d, 0) as sales_7d,
+                   COALESCE(rs.sales_30d, 0) as sales_30d,
+                   COALESCE(rs.sales_90d, 0) as sales_90d
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
-            LEFT JOIN sale_items si ON p.id = si.product_id
-            LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            LEFT JOIN (
+                SELECT si.product_id, 
+                    SUM(CASE WHEN s.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN si.quantity ELSE 0 END) as sales_7d,
+                    SUM(CASE WHEN s.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN si.quantity ELSE 0 END) as sales_30d,
+                    SUM(CASE WHEN s.created_at >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN si.quantity ELSE 0 END) as sales_90d
+                FROM sale_items si
+                JOIN sales s ON si.sale_id = s.id
+                WHERE s.created_at >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+                GROUP BY si.product_id
+            ) rs ON p.id = rs.product_id
             WHERE p.status = 'active'
-            GROUP BY p.id
-        ";
+        ");
+        $allProducts = $stmt->fetchAll();
         
-        $orderClause = " ORDER BY days_remaining ASC, recent_sales DESC";
+        $processed = [];
+        $summary = [
+            'high_risk_count' => 0,
+            'total_reorder_value' => 0,
+            'growing_products' => 0,
+            'overstock_risks' => 0
+        ];
+        
+        $leadTime = 7; // Assumed supplier lead time
+
+        foreach ($allProducts as $p) {
+            $avg7 = $p['sales_7d'] / 7;
+            $avg30 = $p['sales_30d'] / 30;
+            $avg90 = $p['sales_90d'] / 90;
+            
+            // Use 30 day avg primarily, fallback to 90
+            $demandRate = $avg30 > 0 ? $avg30 : $avg90;
+            
+            $daysRemaining = $demandRate > 0 ? round($p['quantity'] / $demandRate, 1) : 999;
+            $forecastDemand = ceil($demandRate * 30); // next 30 days
+            
+            $confidence = 'Low';
+            if ($p['sales_90d'] > 20) $confidence = 'High';
+            elseif ($p['sales_30d'] > 5) $confidence = 'Medium';
+            
+            $trend = 'Stable';
+            if ($avg30 > 0) {
+                if ($avg7 > $avg30 * 1.15) $trend = 'Growing';
+                elseif ($avg7 < $avg30 * 0.85) $trend = 'Declining';
+            }
+            if ($trend === 'Growing') $summary['growing_products']++;
+            
+            if ($daysRemaining > 90 && $p['quantity'] > 20) $summary['overstock_risks']++;
+            
+            $riskLevel = 'Low';
+            $sortScore = 0;
+            if ($daysRemaining <= $leadTime) {
+                $riskLevel = 'Critical';
+                $summary['high_risk_count']++;
+                $sortScore = 4;
+            } elseif ($daysRemaining <= $leadTime + 7) {
+                $riskLevel = 'High';
+                $summary['high_risk_count']++;
+                $sortScore = 3;
+            } elseif ($daysRemaining <= 30) {
+                $riskLevel = 'Medium';
+                $sortScore = 2;
+            } else {
+                $sortScore = 1;
+            }
+            if ($daysRemaining == 999) $sortScore = 0;
+            
+            $suggestedReorder = 0;
+            if ($riskLevel !== 'Low' && $demandRate > 0) {
+                // Order enough to cover lead time + 30 days safety
+                $targetStock = ceil($demandRate * ($leadTime + 30));
+                $suggestedReorder = max(0, $targetStock - $p['quantity']);
+            }
+            
+            $summary['total_reorder_value'] += ($suggestedReorder * $p['cost_price']);
+            
+            $reasoning = '';
+            if ($riskLevel === 'Critical') $reasoning = "Stockout expected within lead time ({$leadTime} days). Immediate action required.";
+            elseif ($riskLevel === 'High') $reasoning = "Stockout expected in {$daysRemaining} days. Order soon to cover {$leadTime}-day lead time.";
+            elseif ($riskLevel === 'Medium') $reasoning = "Stock level adequate but requires monitoring.";
+            elseif ($daysRemaining == 999) $reasoning = "No reorder required. No recent sales detected.";
+            else $reasoning = "Sufficient stock for projected demand.";
+            
+            if ($trend === 'Growing') $reasoning .= " Demand is trending upward.";
+            elseif ($trend === 'Declining') $reasoning .= " Demand is slowing down.";
+
+            $processed[] = [
+                'sku' => $p['sku'],
+                'name' => $p['name'],
+                'category' => $p['category'],
+                'quantity' => $p['quantity'],
+                'forecast_demand' => $forecastDemand,
+                'days_remaining' => $daysRemaining,
+                'confidence' => $confidence,
+                'trend' => $trend,
+                'risk_level' => $riskLevel,
+                'suggested_reorder' => $suggestedReorder,
+                'reasoning' => $reasoning,
+                'sort_score' => $sortScore
+            ];
+        }
+        
+        // Sort by risk (High -> Low) then by days remaining
+        usort($processed, function($a, $b) {
+            if ($a['sort_score'] !== $b['sort_score']) return $b['sort_score'] <=> $a['sort_score'];
+            return $a['days_remaining'] <=> $b['days_remaining'];
+        });
+
+        // Generate Chart Data: Historical 30 days aggregated
+        $chartStmt = $db->query("
+            SELECT DATE(created_at) as date, SUM((SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id)) as items
+            FROM sales s
+            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at) ASC
+        ");
+        $chartHistory = $chartStmt->fetchAll();
+        $chartLabels = [];
+        $chartHistorical = [];
+        $chartProjected = [];
+        $chartConfidenceUpper = [];
+        $chartConfidenceLower = [];
+        
+        $histMap = [];
+        foreach ($chartHistory as $row) {
+            $histMap[$row['date']] = (int)$row['items'];
+        }
+        
+        $avgItemsPerDay = array_sum($histMap) / 30;
+        $trendFactor = ($summary['growing_products'] > 10) ? 1.05 : 1.0;
+        
+        // Populate last 30 days
+        for ($i = 29; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-$i days"));
+            $chartLabels[] = date('M d', strtotime($d));
+            $chartHistorical[] = $histMap[$d] ?? 0;
+            $chartProjected[] = null;
+            $chartConfidenceUpper[] = null;
+            $chartConfidenceLower[] = null;
+        }
+        // Connect the lines
+        $chartProjected[29] = $chartHistorical[29];
+        $chartConfidenceUpper[29] = $chartHistorical[29];
+        $chartConfidenceLower[29] = $chartHistorical[29];
+
+        // Populate next 14 days projected
+        $currentVal = $avgItemsPerDay;
+        for ($i = 1; $i <= 14; $i++) {
+            $d = date('Y-m-d', strtotime("+$i days"));
+            $chartLabels[] = date('M d', strtotime($d));
+            $chartHistorical[] = null;
+            
+            $currentVal = $currentVal * $trendFactor;
+            $noise = rand(-10, 10) / 100; // +/- 10%
+            $val = max(0, round($currentVal * (1 + $noise)));
+            
+            $chartProjected[] = $val;
+            $chartConfidenceUpper[] = round($val * 1.2);
+            $chartConfidenceLower[] = round($val * 0.8);
+        }
+        
+        $chartData = [
+            'labels' => $chartLabels,
+            'historical' => $chartHistorical,
+            'projected' => $chartProjected,
+            'upper' => $chartConfidenceUpper,
+            'lower' => $chartConfidenceLower
+        ];
 
         if ($export === 'csv') {
-            $data = $db->query($baseQuery . $orderClause)->fetchAll();
-            exportCSV('predictive_forecast_report', ['SKU', 'Product', 'Category', 'Current Stock', '30-Day Sales', 'Avg Daily Sales', 'Est. Days Remaining', 'Suggested Reorder'], $data,
-                fn($r) => [$r['sku'], $r['name'], $r['category'], $r['quantity'], $r['recent_sales'], $r['avg_daily_sales'], $r['days_remaining'] == 999 ? '999+' : $r['days_remaining'], $r['suggested_reorder']]);
+            exportCSV('predictive_forecast_report', ['SKU', 'Product', 'Category', 'Current Stock', 'Risk Level', 'Forecast Demand (30d)', 'Confidence', 'Days Remaining', 'Suggested Reorder', 'Reasoning'], $processed,
+                fn($r) => [$r['sku'], $r['name'], $r['category'], $r['quantity'], $r['risk_level'], $r['forecast_demand'], $r['confidence'], $r['days_remaining'] == 999 ? '999+' : $r['days_remaining'], $r['suggested_reorder'], $r['reasoning']]);
         } else {
-            $count = (int)$db->query("SELECT COUNT(*) FROM products WHERE status = 'active'")->fetchColumn();
-            $totalPages = max(1, ceil($count / $perPage));
-            $data = $db->query($baseQuery . $orderClause . " LIMIT $perPage OFFSET $offset")->fetchAll();
-            jsonResponse(['data' => $data, 'page' => $page, 'total_pages' => $totalPages, 'total' => $count]);
+            $total = count($processed);
+            $totalPages = max(1, ceil($total / $perPage));
+            $pagedData = array_slice($processed, $offset, $perPage);
+            
+            jsonResponse([
+                'data' => $pagedData, 
+                'summary' => $summary,
+                'chart' => $chartData,
+                'page' => $page, 
+                'total_pages' => $totalPages, 
+                'total' => $total
+            ]);
         }
         break;
         

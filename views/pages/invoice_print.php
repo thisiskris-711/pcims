@@ -34,19 +34,24 @@ $itemStmt->execute([$saleId]);
 $items = $itemStmt->fetchAll();
 
 // Calculations
-$totalGross = 0;
-$totalDiscount = 0;
+$totalGross = (float)$sale['subtotal'];
+$totalDiscount = (float)$sale['discount'];
+$netAmount = (float)$sale['total'];
+$taxAmount = (float)$sale['tax'];
 
-foreach ($items as $item) {
-    $gross = $item['quantity'] * $item['unit_price'];
-    $totalGross += $gross;
-    $totalDiscount += $item['discount'];
+$notesOriginal = $sale['notes'];
+$discountBreakdown = [];
+$actualNotes = $notesOriginal;
+
+if (strpos($notesOriginal, '--- Discount Breakdown ---') !== false) {
+    $parts = explode('--- Discount Breakdown ---', $notesOriginal);
+    $actualNotes = trim($parts[0]);
+    $breakdownText = trim($parts[1] ?? '');
+    if ($breakdownText) {
+        $discountBreakdown = explode("\n", $breakdownText);
+    }
 }
-$netAmount = $totalGross - $totalDiscount;
 
-// For simple invoice, we might just show Subtotal and Total. 
-// If VAT is needed, we can show it, but the simple invoice just had Sales Tax %. 
-// We'll show Subtotal, Discount, and Total.
 
 ?>
 <!DOCTYPE html>
@@ -334,24 +339,46 @@ $netAmount = $totalGross - $totalDiscount;
     <div class="totals-row">
         <table class="totals-table">
             <tr>
-                <td>TOTAL DISCOUNT</td>
-                <td><?= number_format($totalDiscount, 2) ?></td>
-            </tr>
-            <tr>
                 <td>SUBTOTAL</td>
-                <td><?= number_format($totalGross - $totalDiscount, 2) ?></td>
+                <td><?= number_format($totalGross, 2) ?></td>
             </tr>
-            <!-- Adding Tax line if you want to be exactly like the template -->
             <tr>
-                <td>SALES TAX %</td>
-                <td>0.00</td>
+                <td>TOTAL DISCOUNT</td>
+                <td style="color:red;">-<?= number_format($totalDiscount, 2) ?></td>
+            </tr>
+            <?php foreach ($discountBreakdown as $line): ?>
+            <tr>
+                <td style="font-size: 10px; font-weight: normal; color: #666; padding: 2px 10px; border-top: none; border-bottom: none;"><?= htmlspecialchars(trim($line)) ?></td>
+                <td style="border-top: none; border-bottom: none;"></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr>
+                <td>SALES TAX (12% VAT)</td>
+                <td><?= number_format($taxAmount, 2) ?></td>
             </tr>
             <tr class="grand-total">
                 <td>TOTAL</td>
                 <td><?= number_format($netAmount, 2) ?></td>
             </tr>
+            <?php if ($sale['payment_method'] === 'cash&credit' || $sale['payment_method'] === 'cash'): ?>
+            <tr>
+                <td style="font-weight: normal; font-size: 12px; color: #555;">CASH RECEIVED</td>
+                <td style="font-weight: normal; font-size: 12px; color: #555;"><?= number_format($sale['cash_received'], 2) ?></td>
+            </tr>
+            <tr>
+                <td style="font-weight: normal; font-size: 12px; color: #555;">CHANGE</td>
+                <td style="font-weight: normal; font-size: 12px; color: #555;"><?= number_format(max(0, $sale['cash_received'] - $netAmount), 2) ?></td>
+            </tr>
+            <?php endif; ?>
         </table>
     </div>
+    
+    <?php if ($actualNotes): ?>
+    <div style="margin-top: 20px; padding: 10px; border: 1px dashed #ccc; font-size: 12px; color: #555;">
+        <strong>Notes:</strong><br>
+        <?= nl2br(htmlspecialchars($actualNotes)) ?>
+    </div>
+    <?php endif; ?>
 
     <div class="footer-note">
         <strong>Make all checks payable to:</strong><br>

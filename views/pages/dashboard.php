@@ -60,7 +60,7 @@ include dirname(__DIR__) . '/layouts/header.php';
 
 <!-- KPI Stats -->
 <div class="stats-grid">
-    <div class="stat-card blue">
+    <div class="stat-card blue" onclick="window.location.href='<?= APP_URL ?>/products'" style="cursor:pointer; transition:transform 0.2s;">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="box" style="width:22px;height:22px;"></i>
@@ -70,15 +70,15 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="stat-label">Total Products</div>
     </div>
     
-    <div class="stat-card emerald">
+    <div class="stat-card emerald" onclick="window.location.href='<?= APP_URL ?>/sales'" style="cursor:pointer; transition:transform 0.2s;">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="banknote" style="width:22px;height:22px;"></i>
             </div>
             <?php if ($revenueChange != 0): ?>
-            <span class="stat-badge <?= $revenueChange > 0 ? 'up' : 'down' ?>">
+            <span class="stat-badge <?= $revenueChange > 0 ? 'up' : 'down' ?>" style="font-size: 0.7rem; font-weight: 500; opacity: 0.85;">
                 <i data-lucide="<?= $revenueChange > 0 ? 'trending-up' : 'trending-down' ?>" style="width:12px;height:12px;"></i>
-                <?= abs($revenueChange) ?>%
+                <?= abs($revenueChange) ?>% vs last month
             </span>
             <?php endif; ?>
         </div>
@@ -86,7 +86,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="stat-label">Revenue This Month</div>
     </div>
     
-    <div class="stat-card cyan">
+    <div class="stat-card cyan" onclick="window.location.href='<?= APP_URL ?>/sales'" style="cursor:pointer; transition:transform 0.2s;">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="shopping-bag" style="width:22px;height:22px;"></i>
@@ -96,7 +96,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         <div class="stat-label">Today's Sales (<?= $totalSalesCount ?> orders)</div>
     </div>
     
-    <div class="stat-card rose">
+    <div class="stat-card rose" onclick="window.location.href='<?= APP_URL ?>/products?filter=low_stock'" style="cursor:pointer; transition:transform 0.2s; <?= $lowStockCount > 0 ? 'border: 1px solid rgba(225, 29, 72, 0.4); box-shadow: 0 0 12px rgba(225, 29, 72, 0.05);' : '' ?>">
         <div class="stat-header">
             <div class="stat-icon">
                 <i data-lucide="alert-triangle" style="width:22px;height:22px;"></i>
@@ -133,6 +133,7 @@ include dirname(__DIR__) . '/layouts/header.php';
             <div class="chart-container">
                 <canvas id="categoryChart"></canvas>
             </div>
+            <div id="categoryChartLegend"></div>
         </div>
     </div>
 </div>
@@ -152,10 +153,10 @@ include dirname(__DIR__) . '/layouts/header.php';
         </div>
         <div class="card-body">
             <?php if (empty($lowStockProducts)): ?>
-                <div class="empty-state" style="padding:30px;">
-                    <i data-lucide="check-circle" style="width:40px;height:40px;color:var(--accent-primary);"></i>
-                    <h3>All Stocked Up!</h3>
-                    <p>No products are below their low stock threshold.</p>
+                <div class="empty-state" style="padding:15px; text-align:center;">
+                    <i data-lucide="check-circle" style="width:28px;height:28px;color:var(--accent-primary);margin-bottom:6px;"></i>
+                    <h3 style="margin-bottom:2px;font-size:1rem;">All Stocked Up!</h3>
+                    <p style="margin:0;font-size:0.8rem;">No products below threshold.</p>
                 </div>
             <?php else: ?>
                 <div class="table-wrapper">
@@ -209,26 +210,33 @@ include dirname(__DIR__) . '/layouts/header.php';
             <?php else: ?>
                 <ul class="activity-list">
                     <?php foreach ($recentActivity as $act): ?>
-                    <li class="activity-item">
+                    <li class="activity-item" style="display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.1);">
                         <?php if ($act['activity_type'] === 'sale'): ?>
-                            <div class="activity-icon sale">
+                            <div class="activity-icon sale" style="flex-shrink: 0; padding: 6px; border-radius: 8px; background: rgba(16, 185, 129, 0.1); color: #10b981;">
                                 <i data-lucide="receipt" style="width:16px;height:16px;"></i>
                             </div>
-                            <div class="activity-content">
-                                <div class="activity-text">
-                                    Sale <strong><?= sanitize($act['product_name']) ?></strong> — <?= formatCurrency($act['reference_no']) ?>
+                            <div class="activity-content" style="flex-grow: 1; min-width: 0;">
+                                <div class="activity-text" style="font-size: 0.85rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 4px; margin-right: 4px;">Sale</span>
+                                    <strong><?= sanitize($act['product_name']) ?></strong> — <?= formatCurrency($act['reference_no']) ?>
                                 </div>
-                                <div class="activity-time"><?= timeAgo($act['created_at']) ?> by <?= sanitize($act['user_name'] ?? 'System') ?></div>
+                                <div class="activity-time" style="font-size: 0.75rem; color: var(--text-muted);">
+                                    <?= timeAgo($act['created_at']) ?> • <?= sanitize($act['user_name'] ?? 'System') ?>
+                                </div>
                             </div>
                         <?php else: ?>
-                            <div class="activity-icon stock-<?= $act['sub_type'] ?>">
-                                <i data-lucide="<?= $act['sub_type'] === 'in' ? 'arrow-down-left' : 'arrow-up-right' ?>" style="width:16px;height:16px;"></i>
+                            <?php $isIn = $act['sub_type'] === 'in'; ?>
+                            <div class="activity-icon stock-<?= $act['sub_type'] ?>" style="flex-shrink: 0; padding: 6px; border-radius: 8px; background: <?= $isIn ? 'rgba(59, 130, 246, 0.1)' : 'rgba(245, 158, 11, 0.1)' ?>; color: <?= $isIn ? '#3b82f6' : '#f59e0b' ?>;">
+                                <i data-lucide="<?= $isIn ? 'arrow-down-left' : 'arrow-up-right' ?>" style="width:16px;height:16px;"></i>
                             </div>
-                            <div class="activity-content">
-                                <div class="activity-text">
-                                    Stock <?= $act['sub_type'] === 'in' ? 'received' : 'dispatched' ?>: <strong><?= $act['quantity'] ?></strong> × <?= sanitize($act['product_name']) ?>
+                            <div class="activity-content" style="flex-grow: 1; min-width: 0;">
+                                <div class="activity-text" style="font-size: 0.85rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    <span class="badge <?= $isIn ? 'badge-blue' : 'badge-warning' ?>" style="font-size: 0.65rem; padding: 2px 4px; margin-right: 4px;">Stock <?= $isIn ? 'In' : 'Out' ?></span>
+                                    <strong><?= $act['quantity'] ?></strong> × <?= sanitize($act['product_name']) ?>
                                 </div>
-                                <div class="activity-time"><?= timeAgo($act['created_at']) ?> by <?= sanitize($act['user_name'] ?? 'System') ?></div>
+                                <div class="activity-time" style="font-size: 0.75rem; color: var(--text-muted);">
+                                    <?= timeAgo($act['created_at']) ?> • <?= sanitize($act['user_name'] ?? 'System') ?>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </li>

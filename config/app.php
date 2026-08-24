@@ -24,6 +24,9 @@ define('ITEMS_PER_PAGE', 15);
 // Tax
 define('DEFAULT_TAX_RATE', 12); // percent
 
+// Credit
+define('DEFAULT_CREDIT_LIMIT', 2000.00);
+
 // Roles
 define('ROLE_ADMIN', 'system_admin');
 define('ROLE_MANAGER', 'inventory_manager');

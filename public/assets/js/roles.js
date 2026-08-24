@@ -33,7 +33,8 @@ function renderRolesTable() {
     }
     
     tbody.innerHTML = rolesData.map(role => {
-        const isStandard = ['system_admin', 'inventory_manager', 'sales_associate', 'stock_associate', 'auditor'].includes(role.name);
+        const isStandard = ['admin', 'manager', 'cashier', 'stocker', 'auditor', 'system_admin', 'inventory_manager', 'sales_associate', 'stock_associate'].includes(role.name);
+        const isDeletable = role.name !== 'admin';
         const permsCount = Array.isArray(role.permissions) ? role.permissions.length : 0;
         
         return `
@@ -46,7 +47,7 @@ function renderRolesTable() {
                     <button class="btn btn-ghost btn-icon sm" title="Edit" onclick="editRole(${role.id})">
                         <i data-lucide="edit-2" style="width:15px;height:15px;"></i>
                     </button>
-                    ${!isStandard ? `
+                    ${isDeletable ? `
                     <button class="btn btn-ghost btn-icon sm text-danger" title="Delete" onclick="deleteRole(${role.id}, '${role.name}')">
                         <i data-lucide="trash-2" style="width:15px;height:15px;"></i>
                     </button>

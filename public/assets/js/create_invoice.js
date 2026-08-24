@@ -100,18 +100,28 @@ function renderPOSProducts() {
     grid.innerHTML = posProducts.map(p => {
         const outOfStock = p.quantity <= 0;
         const lowStock = p.quantity > 0 && p.quantity <= 5;
+        const isBundle = p.type === 'bundle';
         const imgHtml = p.image 
             ? `<img src="${APP_URL}/uploads/products/${p.image}" alt="">`
-            : `<i data-lucide="package" style="width:28px;height:28px;"></i>`;
+            : `<i data-lucide="${isBundle ? 'layers' : 'package'}" style="width:28px;height:28px;"></i>`;
         
+        let bundleHtml = '';
+        if (isBundle && p.components && p.components.length > 0) {
+            const items = p.components.map(c => `${c.required_qty}x ${escapeHtml(c.product_name)}`).join(', ');
+            bundleHtml = `<div class="bundle-components" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; line-height: 1.2;">Includes: ${items}</div>`;
+        }
+
         return `
-        <div class="pos-product-card ${outOfStock ? 'out-of-stock' : ''} ${lowStock ? 'low-stock' : ''}" 
+        <div class="pos-product-card ${outOfStock ? 'out-of-stock' : ''} ${lowStock ? 'low-stock' : ''} ${isBundle ? 'is-bundle' : ''}" 
              onclick="${outOfStock ? '' : `addToCart(${p.id})`}" 
-             style="${outOfStock ? 'opacity:0.5;cursor:not-allowed;' : ''}"
+             style="${outOfStock ? 'opacity:0.5;cursor:not-allowed;' : ''}; position: relative; ${isBundle ? 'border: 1px solid var(--accent-primary); background: #f8faff;' : ''}"
              title="${escapeHtml(p.name)}">
+            ${isBundle ? `<div class="pos-product-bundle-badge" style="position:absolute;top:8px;left:8px;background:var(--accent-primary);color:white;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:600;z-index:2;"><i data-lucide="layers" style="width:10px;height:10px;margin-right:2px;display:inline-block;"></i> Bundle</div>` : ''}
+            ${p.active_promo ? `<div class="pos-product-promo-badge" title="${escapeHtml(p.promo_desc)}" style="position:absolute;top:8px;right:8px;z-index:2;"><i data-lucide="tag" style="width:10px;height:10px;margin-right:3px;"></i> Promo</div>` : ''}
             <div class="product-img">${imgHtml}</div>
             <div class="product-name">${escapeHtml(p.name)}</div>
-            <div class="product-price">${formatCurrency(p.selling_price)}</div>
+            ${bundleHtml}
+            <div class="product-price" style="margin-top:auto;">${formatCurrency(p.selling_price)}</div>
             <div class="product-stock">${outOfStock ? 'Out of stock' : `Stock: ${p.quantity}`}</div>
         </div>`;
     }).join('');
@@ -127,8 +137,17 @@ function filterPOSCategory(btn, catId) {
 }
 
 function addToCart(productId) {
-    const product = posProducts.find(p => p.id == productId);
-    if (!product || product.quantity <= 0) return;
+    let product = posProducts.find(p => p.id == productId);
+    if (!product && window.RECOMMENDED_PRODUCTS) {
+        product = window.RECOMMENDED_PRODUCTS.find(p => p.id == productId);
+    }
+    
+    if (!product || product.quantity <= 0) {
+        if (product && product.quantity <= 0) {
+            if(typeof showToast === 'function') showToast('This item is out of stock', 'error');
+        }
+        return;
+    }
     
     const existing = cart.find(item => item.product_id == productId);
     
@@ -146,6 +165,8 @@ function addToCart(productId) {
             quantity: 1,
             max_stock: product.quantity,
             discount: 0,
+            active_promo: product.active_promo || null,
+            promo_desc: product.promo_desc || null,
         });
     }
     
@@ -176,19 +197,24 @@ function renderCart() {
     
     container.innerHTML = cart.map((item, idx) => `
         <div class="cart-item">
-            <div class="cart-item-info">
-                <div class="cart-item-name">${escapeHtml(item.name)}</div>
-                <div class="cart-item-price">${formatCurrency(item.unit_price)} each</div>
+            <div class="cart-item-top">
+                <div class="cart-item-name" title="${escapeHtml(item.name)}">
+                    ${escapeHtml(item.name)}
+                    ${item.active_promo ? `<span style="background:var(--accent-rose);color:white;font-size:0.6rem;padding:2px 4px;border-radius:4px;margin-left:4px;vertical-align:middle;cursor:help;" title="${escapeHtml(item.promo_desc || item.active_promo)}">Promo</span>` : ''}
+                </div>
+                <button class="cart-item-remove" onclick="removeFromCart(${idx})" title="Remove item">
+                    <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+                </button>
             </div>
-            <div class="cart-item-qty">
-                <button onclick="updateCartQty(${idx}, -1)">−</button>
-                <span>${item.quantity}</span>
-                <button onclick="updateCartQty(${idx}, 1)">+</button>
+            <div class="cart-item-bottom">
+                <div class="cart-item-price">${formatCurrency(item.unit_price)}</div>
+                <div class="cart-item-qty">
+                    <button onclick="updateCartQty(${idx}, -1)">−</button>
+                    <span>${item.quantity}</span>
+                    <button onclick="updateCartQty(${idx}, 1)">+</button>
+                </div>
+                <div class="cart-item-total">${formatCurrency(item.unit_price * item.quantity)}</div>
             </div>
-            <div class="cart-item-total">${formatCurrency(item.unit_price * item.quantity)}</div>
-            <button class="cart-item-remove" onclick="removeFromCart(${idx})">
-                <i data-lucide="x" style="width:14px;height:14px;"></i>
-            </button>
         </div>
     `).join('');
     
@@ -235,51 +261,83 @@ function updateCartTotals() {
 
     cart.forEach(item => {
         subtotal += item.unit_price * item.quantity;
+    });
         
-        
-        
-        // Calculate dynamic promotions
-        if (window.ACTIVE_PROMOS) {
-            // Group cart by product ID
-            const cartProductQty = {};
-            cart.forEach(cItem => {
-                cartProductQty[cItem.product_id] = (cartProductQty[cItem.product_id] || 0) + cItem.quantity;
-            });
+    // Group cart by product ID for promo and bundle evaluations
+    const cartProductQty = {};
+    cart.forEach(cItem => {
+        cartProductQty[cItem.product_id] = (cartProductQty[cItem.product_id] || 0) + cItem.quantity;
+    });
 
-            window.ACTIVE_PROMOS.forEach(promo => {
-                if (promo.type === 'category_discount') {
-                    const config = typeof promo.config === 'string' ? JSON.parse(promo.config) : promo.config;
-                    if (!config) return;
-
-                    const rule = config.rule;
-                    const buyQty = parseInt(config.buy_qty) || 0;
-                    const getQty = parseInt(config.get_qty) || 0;
-                    const promoPrice = parseFloat(config.promo_price) || 0;
-                    const buyTarget = config.buy_target || '';
-                    
-                    if (rule === 'buy_x_get_y' && buyTarget.startsWith('product_')) {
-                        const pId = parseInt(buyTarget.split('_')[1]);
-                        const cartQty = cartProductQty[pId] || 0;
-                        if (cartQty > 0 && buyQty + getQty > 0) {
-                            const sets = Math.floor(cartQty / (buyQty + getQty));
-                            if (sets > 0) {
-                                // Find unit price
-                                const cartItem = cart.find(i => parseInt(i.product_id) === pId);
-                                if (cartItem) {
-                                    const regularPriceForGetItems = getQty * cartItem.unit_price;
-                                    const promoPriceForGetItems = getQty * promoPrice;
-                                    const savings = regularPriceForGetItems - promoPriceForGetItems;
-                                    if (savings > 0) promoDiscount += savings * sets;
-                                }
-                            }
-                        }
-                    } else if (rule === 'buy_any_x_for_y' && buyTarget.startsWith('category_')) {
-                        // Complex category discount. Estimate simplified for frontend or leave to backend
-                    }
+    // Calculate bundle discounts first (highest priority)
+    if (window.ACTIVE_BUNDLES) {
+        window.ACTIVE_BUNDLES.forEach(bundle => {
+            // Find how many full sets of this bundle we can make
+            let possibleSets = Infinity;
+            
+            bundle.items.forEach(comp => {
+                const avail = cartProductQty[comp.product_id] || 0;
+                const sets = Math.floor(avail / comp.required_qty);
+                if (sets < possibleSets) {
+                    possibleSets = sets;
                 }
             });
-        }
-    });
+            
+            if (possibleSets > 0 && possibleSets !== Infinity) {
+                // We have complete bundle(s)!
+                let regularComponentTotal = 0;
+                bundle.items.forEach(comp => {
+                    const cartItem = cart.find(i => parseInt(i.product_id) === comp.product_id);
+                    if (cartItem) {
+                        regularComponentTotal += cartItem.unit_price * comp.required_qty;
+                    }
+                    // Deduct used quantities from the pool so they aren't double-discounted
+                    cartProductQty[comp.product_id] -= comp.required_qty * possibleSets;
+                });
+                
+                const bundleSavings = regularComponentTotal - bundle.bundle_price;
+                if (bundleSavings >= 0) {
+                    promoDiscount += bundleSavings * possibleSets;
+                }
+            }
+        });
+    }
+
+    // Calculate dynamic promotions with remaining quantities
+    if (window.ACTIVE_PROMOS) {
+        window.ACTIVE_PROMOS.forEach(promo => {
+            if (promo.type === 'category_discount') {
+                const config = typeof promo.config === 'string' ? JSON.parse(promo.config) : promo.config;
+                if (!config) return;
+
+                const rule = config.rule;
+                const buyQty = parseInt(config.buy_qty) || 0;
+                const getQty = parseInt(config.get_qty) || 0;
+                const promoPrice = parseFloat(config.promo_price) || 0;
+                const buyTarget = config.buy_target || '';
+                
+                if (rule === 'buy_x_get_y' && buyTarget.startsWith('product_')) {
+                    const pId = parseInt(buyTarget.split('_')[1]);
+                    const cartQty = cartProductQty[pId] || 0;
+                    if (cartQty > 0 && buyQty + getQty > 0) {
+                        const sets = Math.floor(cartQty / (buyQty + getQty));
+                        if (sets > 0) {
+                            // Find unit price
+                            const cartItem = cart.find(i => parseInt(i.product_id) === pId);
+                            if (cartItem) {
+                                const regularPriceForGetItems = getQty * cartItem.unit_price;
+                                const promoPriceForGetItems = getQty * promoPrice;
+                                const savings = regularPriceForGetItems - promoPriceForGetItems;
+                                if (savings > 0) promoDiscount += savings * sets;
+                            }
+                        }
+                    }
+                } else if (rule === 'buy_any_x_for_y' && buyTarget.startsWith('category_')) {
+                    // Complex category discount. Estimate simplified for frontend or leave to backend
+                }
+            }
+        });
+    }
 
     const discountedSubtotal = subtotal - promoDiscount;
     const dealerDiscount = discountedSubtotal * 0.25;
@@ -479,12 +537,11 @@ async function processPayment() {
         const result = await apiRequest('/api/sales', { method: 'POST', body });
         
         closeModal('checkoutModal');
-        showReceipt(result);
         cart = [];
         selectedDealer = null;
         renderCart();
         loadPOSProducts(); // Refresh stock counts
-        showToast(`Sale completed! Invoice: ${result.invoice_no}`, 'success');
+        showToast(`Sale submitted for approval! Ref: ${result.invoice_no}`, 'success');
     } catch (e) {
         showToast(e.message || 'Payment failed', 'error');
     } finally {
@@ -595,6 +652,8 @@ function renderRecommendations(data) {
     if (!container) return;
 
     const { recommendations = [], bundles = [], promotions = [] } = data;
+    window.RECOMMENDED_PRODUCTS = [...recommendations, ...bundles];
+    
     const hasContent = recommendations.length > 0 || bundles.length > 0 || promotions.length > 0;
 
     if (!hasContent) {
@@ -636,24 +695,56 @@ function renderRecommendations(data) {
 
     // 2. Bundle Suggestions
     if (bundles.length > 0) {
-        html += `<div class="pos-rec-header" style="margin-top:8px;"><i data-lucide="package" style="width:14px;height:14px;"></i> Bundle & Save</div>`;
         bundles.forEach(bundle => {
-            const itemNames = bundle.products.map(p => escapeHtml(p.name)).join(', ');
-            const missingIds = bundle.missing_products.map(p => p.product_id);
-            html += `<div class="pos-bundle-card">
-                <div class="pos-bundle-card-header">
-                    <span class="pos-bundle-card-title">${escapeHtml(bundle.name)}</span>
-                    <span class="pos-bundle-card-savings">Save ${formatCurrency(bundle.savings)}</span>
-                </div>
-                <div class="pos-bundle-card-items">${itemNames}</div>
-                <div class="pos-bundle-card-prices">
-                    <span class="regular">${formatCurrency(bundle.regular_price)}</span>
-                    <span class="bundle">${formatCurrency(bundle.bundle_price)}</span>
-                </div>
-                <button class="pos-rec-add-btn" onclick="addBundleMissing([${missingIds.join(',')}])">
-                    <i data-lucide="plus" style="width:12px;height:12px;"></i> Complete Bundle
-                </button>
-            </div>`;
+            let itemsListHtml = '';
+            bundle.products.forEach(p => {
+                if (p.missing_qty > 0) {
+                    if (p.cart_qty > 0) {
+                        itemsListHtml += `<div style="color:var(--accent-emerald);font-size:0.75rem;margin-bottom:2px;display:flex;align-items:center;gap:4px;"><i data-lucide="check" style="width:10px;height:10px;"></i> ${p.cart_qty}x ${escapeHtml(p.name)}</div>`;
+                    }
+                    itemsListHtml += `<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:2px;display:flex;align-items:center;gap:4px;"><i data-lucide="plus" style="width:10px;height:10px;"></i> ${p.missing_qty}x ${escapeHtml(p.name)}</div>`;
+                } else {
+                    itemsListHtml += `<div style="color:var(--accent-emerald);font-size:0.75rem;margin-bottom:2px;display:flex;align-items:center;gap:4px;"><i data-lucide="check" style="width:10px;height:10px;"></i> ${p.required_qty}x ${escapeHtml(p.name)}</div>`;
+                }
+            });
+
+            if (!bundle.qualified) {
+                const missingJson = JSON.stringify(bundle.missing_products.map(p => ({
+                    id: p.product_id,
+                    qty: p.missing_qty,
+                    price: p.selling_price,
+                    stock: p.stock,
+                    name: p.name
+                }))).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+
+                html += `<div class="pos-promo-badge" style="display:flex; flex-direction:column; gap:6px; border-left:3px solid var(--accent-cyan); padding:8px 10px; background:var(--bg-tertiary); margin-bottom:6px; border-radius:4px;">
+                    <div>
+                        <span class="pos-promo-label" style="background:var(--accent-cyan); color:white;">BUNDLE AVAILABLE</span>
+                        <div class="pos-promo-desc" style="margin-top:6px; font-weight:600; font-size:0.8rem; color:var(--text-primary);">Complete this bundle and save ${formatCurrency(bundle.savings)}</div>
+                    </div>
+                    <div style="padding-left:2px; margin: 4px 0;">
+                        ${itemsListHtml}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--border-color); padding-top:6px;">
+                        <div style="font-size:0.75rem; display:flex; flex-direction:column;">
+                            <span style="color:var(--accent-emerald); font-weight:bold; font-size:0.85rem;">Bundle Price: ${formatCurrency(bundle.bundle_price)}</span>
+                            <span style="text-decoration:line-through; color:var(--text-muted);">Regular: ${formatCurrency(bundle.regular_price)}</span>
+                        </div>
+                        <button class="pos-rec-add-btn" style="border-color:var(--accent-cyan); color:var(--accent-cyan);" onclick="addBundleMissing(${missingJson})">+ Add Bundle</button>
+                    </div>
+                </div>`;
+            } else {
+                html += `<div class="pos-promo-badge qualified" style="display:flex; flex-direction:column; gap:6px; border-left:3px solid var(--accent-emerald); padding:8px 10px; background:rgba(16,185,129,0.05); margin-bottom:6px; border-radius:4px;">
+                    <div>
+                        <span class="pos-promo-label" style="background:var(--accent-emerald); color:white;">BUNDLE APPLIED</span>
+                        <div class="pos-promo-desc" style="margin-top:6px; font-weight:600; font-size:0.8rem; color:var(--text-primary);"><i data-lucide="layers" style="width:12px;height:12px;margin-right:4px;"></i> ${escapeHtml(bundle.name)}</div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                        <span style="font-size:0.85rem; font-weight:bold; color:var(--text-primary);">Bundle Price: ${formatCurrency(bundle.bundle_price)}</span>
+                        <span style="font-size:0.85rem; font-weight:bold; color:var(--accent-emerald);">You Save: ${formatCurrency(bundle.savings)}</span>
+                    </div>
+                </div>`;
+            }
         });
     }
 
@@ -668,9 +759,8 @@ function renderRecommendations(data) {
                 <div class="pos-rec-card-img">${imgHtml}</div>
                 <div class="pos-rec-card-info">
                     <div class="pos-rec-card-name" title="${escapeHtml(rec.name)}">${escapeHtml(rec.name)}</div>
-                    <div class="pos-rec-card-reason">${escapeHtml(rec.reason || '')}</div>
+                    <div class="pos-rec-card-price" style="font-size:0.75rem;color:var(--text-muted);">${formatCurrency(rec.selling_price)}</div>
                 </div>
-                <div class="pos-rec-card-price">${formatCurrency(rec.selling_price)}</div>
                 <button class="pos-rec-add-btn" onclick="addToCart(${rec.product_id})">+ Add</button>
             </div>`;
         });
@@ -681,6 +771,48 @@ function renderRecommendations(data) {
     lucide.createIcons({ nodes: [container] });
 }
 
-function addBundleMissing(productIds) {
-    productIds.forEach(id => addToCart(id));
+function addBundleMissing(items) {
+    if (!items || items.length === 0) return;
+    
+    let added = false;
+    items.forEach(item => {
+        const id = item.id;
+        const qtyToAdd = item.qty;
+        const sellingPrice = item.price;
+        const maxStock = item.stock;
+        const name = item.name;
+        
+        const existing = cart.find(c => c.product_id == id);
+        if (existing) {
+            if (existing.quantity + qtyToAdd <= maxStock) {
+                existing.quantity += qtyToAdd;
+                added = true;
+            } else if (existing.quantity < maxStock) {
+                existing.quantity = maxStock;
+                added = true;
+            }
+        } else {
+            const addQty = Math.min(qtyToAdd, maxStock);
+            if (addQty > 0) {
+                cart.push({
+                    product_id: id,
+                    name: name,
+                    unit_price: sellingPrice,
+                    quantity: addQty,
+                    max_stock: maxStock,
+                    discount: 0,
+                    active_promo: null,
+                    promo_desc: null,
+                });
+                added = true;
+            }
+        }
+    });
+    
+    if (added) {
+        renderCart();
+        showToast('Bundle components added to cart', 'success');
+    }
 }
+
+

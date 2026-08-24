@@ -58,6 +58,32 @@ switch ($action) {
         jsonResponse(['labels' => $labels, 'values' => $values, 'colors' => $colors]);
         break;
         
+    case 'credit_aging':
+        // Get overdue amounts bucketed by age
+        $stmt = $db->query("
+            SELECT 
+                SUM(CASE WHEN DATEDIFF(CURDATE(), s.due_date) BETWEEN 1 AND 30 THEN s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0) ELSE 0 END) as bucket_30,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), s.due_date) BETWEEN 31 AND 60 THEN s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0) ELSE 0 END) as bucket_60,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), s.due_date) BETWEEN 61 AND 90 THEN s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0) ELSE 0 END) as bucket_90,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), s.due_date) > 90 THEN s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0) ELSE 0 END) as bucket_over_90
+            FROM sales s
+            WHERE s.payment_method = 'credit' AND s.due_date < CURDATE()
+        ");
+        $aging = $stmt->fetch();
+        
+        $values = [
+            round((float)$aging['bucket_30'], 2),
+            round((float)$aging['bucket_60'], 2),
+            round((float)$aging['bucket_90'], 2),
+            round((float)$aging['bucket_over_90'], 2)
+        ];
+        
+        $labels = ['1-30 Days', '31-60 Days', '61-90 Days', '> 90 Days'];
+        $colors = ['#f59e0b', '#f97316', '#ef4444', '#7f1d1d'];
+        
+        jsonResponse(['labels' => $labels, 'values' => $values, 'colors' => $colors]);
+        break;
+        
     default:
         jsonResponse(['error' => 'Invalid action'], 400);
 }

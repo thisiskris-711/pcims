@@ -67,6 +67,8 @@ switch ($method) {
         // List all dealers
         $search = trim($_GET['search'] ?? '');
         $status = $_GET['status'] ?? '';
+        $creditStatus = $_GET['credit_status'] ?? '';
+        $sort = $_GET['sort'] ?? 'name';
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
 
@@ -74,13 +76,21 @@ switch ($method) {
         $params = [];
 
         if ($search) {
-            $where .= " AND (d.name LIKE ? OR d.dealer_code LIKE ? OR d.phone LIKE ?)";
+            $where .= " AND (d.name LIKE ? OR d.dealer_code LIKE ? OR d.phone LIKE ? OR d.email LIKE ?)";
             $like = "%{$search}%";
-            $params = array_merge($params, [$like, $like, $like]);
+            $params = array_merge($params, [$like, $like, $like, $like]);
         }
         if ($status) {
             $where .= " AND d.status = ?";
             $params[] = $status;
+        }
+        
+        if ($creditStatus === 'no_outstanding') {
+            $where .= " AND d.credit_balance <= 0";
+        } elseif ($creditStatus === 'outstanding') {
+            $where .= " AND d.credit_balance > 0";
+        } elseif ($creditStatus === 'near_limit') {
+            $where .= " AND (d.credit_limit > 0 AND (d.credit_balance / d.credit_limit) >= 0.8)";
         }
 
         $countStmt = $db->prepare("SELECT COUNT(*) FROM dealers d WHERE $where");
@@ -89,13 +99,22 @@ switch ($method) {
         $totalPages = max(1, ceil($total / $perPage));
         $offset = ($page - 1) * $perPage;
 
+        $orderClause = "d.name ASC";
+        if ($sort === 'outstanding') {
+            $orderClause = "d.credit_balance DESC";
+        } elseif ($sort === 'utilization') {
+            $orderClause = "IF(d.credit_limit > 0, d.credit_balance / d.credit_limit, 0) DESC";
+        } elseif ($sort === 'sales') {
+            $orderClause = "total_sales DESC";
+        }
+
         $stmt = $db->prepare("
             SELECT d.*, 
                    (SELECT COUNT(*) FROM sales WHERE dealer_id = d.id) as total_sales,
                    (SELECT COALESCE(SUM(total), 0) FROM sales WHERE dealer_id = d.id) as total_revenue
             FROM dealers d
             WHERE $where
-            ORDER BY d.name ASC
+            ORDER BY $orderClause
             LIMIT $perPage OFFSET $offset
         ");
         $stmt->execute($params);
@@ -115,7 +134,7 @@ switch ($method) {
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
-        $creditLimit = 2000;
+        $creditLimit = max(0, (float)($input['credit_limit'] ?? DEFAULT_CREDIT_LIMIT));
         $notes = trim($input['notes'] ?? '');
 
         if (empty($name)) jsonResponse(['error' => 'Dealer name is required'], 400);
@@ -160,7 +179,7 @@ switch ($method) {
         $email = trim($input['email'] ?? '');
         $phone = trim($input['phone'] ?? '');
         $address = trim($input['address'] ?? '');
-        $creditLimit = 2000;
+        $creditLimit = max(0, (float)($input['credit_limit'] ?? DEFAULT_CREDIT_LIMIT));
         $status = $input['status'] ?? 'active';
         $notes = trim($input['notes'] ?? '');
 

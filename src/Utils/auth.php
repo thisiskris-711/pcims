@@ -192,7 +192,8 @@ function getAllPermissions(): array {
         'view_sales' => 'View Sales',
         'create_sales' => 'Create Sales',
         'approve_sales' => 'Approve Sales',
-        'view_reports' => 'View Reports'
+        'view_reports' => 'View Reports',
+        'manage_backups' => 'Manage Backups'
     ];
 }
 

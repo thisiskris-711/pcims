@@ -102,9 +102,8 @@ if ($method === 'DELETE') {
         exit;
     }
     
-    $standardRoles = ['system_admin', 'inventory_manager', 'sales_associate', 'stock_associate', 'auditor'];
-    if (in_array($role['name'], $standardRoles)) {
-        echo json_encode(['success' => false, 'message' => 'Cannot delete a standard system role']);
+    if ($role['name'] === 'admin') {
+        echo json_encode(['success' => false, 'message' => 'Cannot delete the core Administrator role']);
         exit;
     }
     

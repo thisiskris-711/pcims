@@ -17,11 +17,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+window.clearFilters = function() {
+    if (document.getElementById('poSearch')) document.getElementById('poSearch').value = '';
+    if (document.getElementById('statusFilter')) document.getElementById('statusFilter').value = '';
+    loadPOs(1);
+};
+
+function updateClearFiltersBtn() {
+    const search = document.getElementById('poSearch')?.value || '';
+    const status = document.getElementById('statusFilter')?.value || '';
+    const btn = document.getElementById('clearFiltersBtn');
+    if (btn) {
+        btn.style.display = (search || status) ? 'inline-flex' : 'none';
+        btn.style.alignItems = 'center';
+    }
+}
+
 async function loadPOs(page = 1) {
     currentPOPage = page;
     const search = document.getElementById('poSearch')?.value || '';
     const status = document.getElementById('statusFilter')?.value || '';
     const params = new URLSearchParams({ search, status, page, per_page: 15 });
+    
+    updateClearFiltersBtn();
 
     try {
         const data = await apiRequest(`/api/purchase_orders?${params}`);
@@ -34,12 +52,12 @@ async function loadPOs(page = 1) {
 
 function getStatusColor(status) {
     switch (status) {
-        case 'draft': return 'var(--text-muted)';
-        case 'pending': return 'var(--warning-color)';
-        case 'ordered': return 'var(--primary-color)';
+        case 'draft': return '#6b7280'; // gray
+        case 'pending': return '#eab308'; // yellow/amber
+        case 'ordered': return '#3b82f6'; // blue
         case 'partially_received': return '#f59e0b'; // orange
-        case 'received': return 'var(--success-color)';
-        case 'cancelled': return 'var(--error-color)';
+        case 'received': return '#10b981'; // green
+        case 'cancelled': return '#ef4444'; // red
         default: return 'var(--text-muted)';
     }
 }
@@ -48,40 +66,65 @@ function renderPOs(pos) {
     const tbody = document.getElementById('poBody');
 
     if (pos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:40px;">No purchase orders found</td></tr>';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7">
+                    <div style="padding: 60px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                        <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                            <i data-lucide="file-search" style="width: 24px; height: 24px; color: var(--text-muted);"></i>
+                        </div>
+                        <h4 style="margin: 0; color: var(--text-main); font-weight: 500;">No purchase orders found</h4>
+                        <p style="margin: 0; color: var(--text-muted); font-size: 0.9rem; max-width: 300px;">
+                            Try adjusting your filters or create a new purchase order to get started.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        lucide.createIcons();
         return;
     }
 
+    const formatter = new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+
     tbody.innerHTML = pos.map(po => {
         const statusColor = getStatusColor(po.status);
-        const expected = po.expected_date ? new Date(po.expected_date).toLocaleDateString() : '—';
-        const created = new Date(po.created_at).toLocaleDateString();
+        const expected = po.expected_date ? formatter.format(new Date(po.expected_date)) : '—';
+        const created = formatter.format(new Date(po.created_at));
 
-        let actions = `<button class="btn btn-sm btn-ghost" onclick="viewPO(${po.id})" title="View Details"><i data-lucide="eye" style="width:16px;height:16px;"></i></button>`;
+        let actions = '';
 
         if (window.CAN_EDIT) {
             if (['ordered', 'partially_received'].includes(po.status)) {
                 actions += ` <button class="btn btn-sm btn-ghost" onclick="openReceiveModal(${po.id}, '${po.po_number}')" title="Receive Items" style="color:var(--success-color);"><i data-lucide="package-check" style="width:16px;height:16px;"></i></button>`;
             }
             if (po.status === 'pending') {
-                actions += ` <button class="btn btn-sm btn-ghost" onclick="updatePOStatus(${po.id}, 'ordered')" title="Mark as Ordered" style="color:var(--primary-color);"><i data-lucide="send" style="width:16px;height:16px;"></i></button>`;
+                actions += ` <button class="btn btn-sm btn-ghost" onclick="updatePOStatus(${po.id}, 'ordered')" title="Approve" style="color:var(--primary-color);"><i data-lucide="check-circle" style="width:16px;height:16px;"></i></button>`;
             }
             if (['draft', 'pending', 'ordered'].includes(po.status)) {
-                actions += ` <button class="btn btn-sm btn-ghost" onclick="updatePOStatus(${po.id}, 'cancelled')" title="Cancel" style="color:var(--error-color);"><i data-lucide="x-circle" style="width:16px;height:16px;"></i></button>`;
+                actions += ` <button class="btn btn-sm btn-ghost" onclick="updatePOStatus(${po.id}, 'cancelled')" title="Cancel" style="color:var(--error-color);"><i data-lucide="ban" style="width:16px;height:16px;"></i></button>`;
             }
             if (po.status === 'draft') {
                 actions += ` <button class="btn btn-sm btn-ghost" onclick="deletePO(${po.id})" title="Delete"><i data-lucide="trash-2" style="width:16px;height:16px;color:var(--error-color);"></i></button>`;
             }
         }
 
-        return `<tr>
-            <td><code style="color:var(--primary-color);font-size:0.8rem;">${po.po_number}</code></td>
-            <td><div style="font-weight:500;">${escapeHtml(po.supplier_name || 'Unknown')}</div></td>
-            <td>${created}</td>
-            <td>${expected}</td>
-            <td style="font-weight:600;">${formatCurrency(po.total_amount)}</td>
-            <td><span class="status-badge" style="color:${statusColor};background:${statusColor}15;">${po.status.replace('_', ' ')}</span></td>
-            <td>${actions}</td>
+        return `<tr style="cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background=''" onclick="if(!event.target.closest('.btn') && !event.target.closest('a')) viewPO(${po.id})">
+            <td style="padding:16px;">
+                <a href="#" onclick="viewPO(${po.id}); return false;" style="font-weight:600; color:var(--primary-color); text-decoration:none;">${po.po_number}</a>
+            </td>
+            <td style="padding:16px;"><div style="font-weight:500;">${escapeHtml(po.supplier_name || 'Unknown')}</div></td>
+            <td style="padding:16px; color:var(--text-muted);">${created}</td>
+            <td style="padding:16px; color:var(--text-muted);">${expected}</td>
+            <td style="padding:16px; text-align:right; font-weight:600;">${formatCurrency(po.total_amount)}</td>
+            <td style="padding:16px; text-align:center;">
+                <span class="status-badge" style="color:${statusColor}; background:${statusColor}15; font-weight:600; padding:4px 10px; font-size:0.8rem; border-radius:var(--border-radius-lg); display:inline-block;">
+                    ${po.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </span>
+            </td>
+            <td style="padding:16px; text-align:right; white-space:nowrap;">
+                ${actions}
+            </td>
         </tr>`;
     }).join('');
 

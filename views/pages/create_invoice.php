@@ -22,11 +22,66 @@ $activePromos = $db->query("
       AND (end_date IS NULL OR end_date >= CURDATE())
 ")->fetchAll();
 
+// Load active bundles
+$bundlesStmt = $db->query("
+    SELECT p.id as bundle_id, p.name as bundle_name, p.selling_price as bundle_price, p.image,
+           pbi.product_id, pbi.quantity as required_qty
+    FROM products p
+    JOIN product_bundle_items pbi ON p.id = pbi.bundle_id
+    WHERE p.type = 'bundle' AND p.status = 'active'
+");
+$bundleRows = $bundlesStmt->fetchAll();
+$activeBundles = [];
+foreach ($bundleRows as $row) {
+    if (!isset($activeBundles[$row['bundle_id']])) {
+        $activeBundles[$row['bundle_id']] = [
+            'bundle_id' => $row['bundle_id'],
+            'name' => $row['bundle_name'],
+            'bundle_price' => (float)$row['bundle_price'],
+            'image' => $row['image'],
+            'items' => []
+        ];
+    }
+    $activeBundles[$row['bundle_id']]['items'][] = [
+        'product_id' => (int)$row['product_id'],
+        'required_qty' => (int)$row['required_qty']
+    ];
+}
+$activeBundlesList = array_values($activeBundles);
+
+// Also inject 'bundle_deal' promotions as ACTIVE_BUNDLES so they share the same logic
+foreach ($activePromos as $promo) {
+    if ($promo['type'] === 'bundle_deal') {
+        $config = json_decode($promo['config'], true);
+        if ($config && !empty($config['components'])) {
+            $items = [];
+            foreach ($config['components'] as $comp) {
+                if (str_starts_with($comp['target'], 'product_')) {
+                    $items[] = [
+                        'product_id' => (int)str_replace('product_', '', $comp['target']),
+                        'required_qty' => (int)$comp['qty']
+                    ];
+                }
+            }
+            if (!empty($items)) {
+                $activeBundlesList[] = [
+                    'bundle_id' => 'promo_' . $promo['id'],
+                    'name' => $promo['name'],
+                    'bundle_price' => (float)$config['bundle_price'],
+                    'image' => null,
+                    'items' => $items
+                ];
+            }
+        }
+    }
+}
+
 include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <script>
     window.ACTIVE_PROMOS = <?= json_encode($activePromos) ?>;
+    window.ACTIVE_BUNDLES = <?= json_encode($activeBundlesList) ?>;
 </script>
 
 <div class="pos-layout">
@@ -64,23 +119,25 @@ include dirname(__DIR__) . '/layouts/header.php';
             <span class="cart-count" id="cartCount">0</span>
         </div>
 
-        <div class="pos-cart-items" id="cartItems">
-            <div class="cart-empty">
-                <i data-lucide="shopping-bag" style="width:48px;height:48px;"></i>
-                <p style="margin-top:8px;">Your cart is empty</p>
-                <p style="font-size:0.78rem;">Select a product to add it to the invoice.</p>
+        <div class="pos-cart-scrollable" style="flex: 1; overflow-y: auto;">
+            <div class="pos-cart-items" id="cartItems" style="flex: none; overflow: visible;">
+                <div class="cart-empty">
+                    <i data-lucide="shopping-bag" style="width:48px;height:48px;"></i>
+                    <p style="margin-top:8px;">Your cart is empty</p>
+                    <p style="font-size:0.78rem;">Select a product to add it to the invoice.</p>
+                </div>
             </div>
-        </div>
 
-        <!-- Smart Recommendations -->
-        <div class="pos-recommendations" id="posRecommendations" style="display:none;"></div>
+            <!-- Smart Recommendations -->
+            <div class="pos-recommendations" id="posRecommendations" style="display:none;"></div>
+        </div>
 
         <div class="pos-cart-summary">
             <div class="summary-row">
                 <span>Subtotal</span>
                 <span id="cartSubtotal">₱0.00</span>
             </div>
-            <div class="summary-row">
+            <div class="summary-row discount">
                 <span>Dealer Discount (25%)</span>
                 <span id="cartDiscount">-₱0.00</span>
             </div>

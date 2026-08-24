@@ -31,7 +31,7 @@ function processLowStockAlerts(PDO $db) {
                 continue;
             }
             $perms = json_decode($role['permissions'] ?? '[]', true) ?: [];
-            if (in_array('manage_products', $perms)) {
+            if (in_array('manage_inventory', $perms) || in_array('manage_products', $perms)) {
                 $rolesWithPerm[] = $role['name'];
             }
         }
@@ -45,7 +45,7 @@ function processLowStockAlerts(PDO $db) {
             } else {
                 if ($user['permissions'] !== null) {
                     $perms = json_decode($user['permissions'], true) ?: [];
-                    $hasPerm = in_array('manage_products', $perms);
+                    $hasPerm = in_array('manage_inventory', $perms) || in_array('manage_products', $perms);
                 } else {
                     $hasPerm = in_array($user['role'], $rolesWithPerm);
                 }

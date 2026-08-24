@@ -17,8 +17,8 @@ include dirname(__DIR__) . '/layouts/header.php';
         <select class="form-control" id="salesPayment" style="width:auto;min-width:130px;">
             <option value="">All Methods</option>
             <option value="cash">Cash</option>
-            <option value="card">Card</option>
-            <option value="transfer">Transfer</option>
+            <option value="credit">Credit</option>
+            <option value="cash&credit">Cash & Credit</option>
         </select>
     </div>
 </div>
@@ -100,7 +100,7 @@ function renderSales(response) {
         return;
     }
     
-    const paymentBadge = { cash: 'badge-emerald', card: 'badge-blue', transfer: 'badge-violet', other: 'badge-gray' };
+    const paymentBadge = { cash: 'badge-emerald', credit: 'badge-blue', 'cash&credit': 'badge-violet' };
     
     tbody.innerHTML = sales.map(s => `
         <tr class="clickable-row" onclick="viewSaleDetail(${s.id})">
@@ -111,7 +111,7 @@ function renderSales(response) {
             <td class="text-muted">${parseFloat(s.discount) > 0 ? '-' + formatCurrency(s.discount) : '—'}</td>
             <td class="text-muted">${formatCurrency(s.tax)}</td>
             <td class="font-bold text-success">${formatCurrency(s.total)}</td>
-            <td><span class="badge ${paymentBadge[s.payment_method] || 'badge-gray'}">${s.payment_method}</span></td>
+            <td><span class="badge ${paymentBadge[s.payment_method] || 'badge-gray'}">${s.payment_method.toUpperCase()}</span></td>
             <td><span class="status status-${s.payment_status}">${s.payment_status}</span></td>
             <td class="text-muted">${new Date(s.created_at).toLocaleDateString()}</td>
         </tr>
@@ -149,7 +149,7 @@ async function viewSaleDetail(id) {
                     </div>
                     <div>
                         <p><strong>Date:</strong> ${new Date(sale.created_at).toLocaleString()}</p>
-                        <p><strong>Payment:</strong> <span class="badge badge-blue">${sale.payment_method}</span></p>
+                        <p><strong>Payment:</strong> <span class="badge badge-blue">${sale.payment_method.toUpperCase()}</span></p>
                         <p><strong>Status:</strong> <span class="status status-${sale.payment_status}">${sale.payment_status}</span></p>
                     </div>
                 </div>

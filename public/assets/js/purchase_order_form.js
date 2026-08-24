@@ -27,6 +27,22 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('productDropdown').style.display = 'none';
         }
     });
+    
+    // Auto-load product from URL (Predictive Analysis)
+    const urlParams = new URLSearchParams(window.location.search);
+    const sku = urlParams.get('sku');
+    const qty = urlParams.get('qty');
+    if (sku) {
+        apiRequest(`/api/products?search=${encodeURIComponent(sku)}`).then(data => {
+            if (data.data && data.data.length > 0) {
+                const p = data.data[0];
+                if (p.sku === sku) {
+                    addProduct(p.id, p.name, p.sku, p.cost_price);
+                    if (qty) updateItem(0, 'quantity', qty);
+                }
+            }
+        }).catch(e => console.error("Failed to autoload product", e));
+    }
 });
 
 // --- Suppliers ---
@@ -146,7 +162,7 @@ function renderPOItems() {
     const tbody = document.getElementById('poItemsBody');
     
     if (poItems.length === 0) {
-        tbody.innerHTML = '<tr id="emptyItemsRow"><td colspan="6" class="text-center text-muted" style="padding:40px;">No items added yet. Search and select products to add.</td></tr>';
+        tbody.innerHTML = '<tr id="emptyItemsRow"><td colspan="5" class="text-center text-muted" style="padding:40px;">No items added yet. Search and select products to add.</td></tr>';
         updateSummary();
         return;
     }
@@ -155,7 +171,6 @@ function renderPOItems() {
         const total = item.quantity * item.unit_cost;
         return `
             <tr>
-                <td><span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:var(--bg-tertiary);border-radius:50%;font-size:0.8rem;color:var(--text-muted);">${idx + 1}</span></td>
                 <td>
                     <div style="font-weight:500;">${escapeHtml(item.name)}</div>
                     <div style="font-size:0.75rem;color:var(--text-muted);">${item.sku}</div>
@@ -183,10 +198,18 @@ function renderPOItems() {
 }
 
 function updateSummary() {
-    const totalItems = poItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalItems = poItems.length;
+    const totalUnits = poItems.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
     const totalAmount = poItems.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
     
     document.getElementById('summaryTotalItems').textContent = totalItems;
+    
+    const summaryTotalUnits = document.getElementById('summaryTotalUnits');
+    if (summaryTotalUnits) summaryTotalUnits.textContent = totalUnits;
+    
+    const summarySubtotal = document.getElementById('summarySubtotal');
+    if (summarySubtotal) summarySubtotal.textContent = formatCurrency(totalAmount);
+    
     document.getElementById('summaryTotalAmount').textContent = formatCurrency(totalAmount);
 }
 

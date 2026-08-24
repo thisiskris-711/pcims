@@ -115,6 +115,10 @@ switch ($route) {
         require dirname(__DIR__) . '/views/pages/promotions.php';
         break;
 
+    case '/backup':
+        require dirname(__DIR__) . '/views/pages/backup.php';
+        break;
+
     // --- API ROUTES ---
     case '/api/products':
         require dirname(__DIR__) . '/src/Api/products.php';
@@ -182,6 +186,10 @@ switch ($route) {
 
     case '/api/keep_alive':
         require dirname(__DIR__) . '/src/Api/keep_alive.php';
+        break;
+
+    case '/api/backup':
+        require dirname(__DIR__) . '/src/Api/backup.php';
         break;
 
     default:

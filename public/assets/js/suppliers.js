@@ -91,7 +91,23 @@ async function loadSupplierForEdit(id) {
         document.getElementById('contactPerson').value = s.contact_person || '';
         document.getElementById('supplierEmail').value = s.email || '';
         document.getElementById('supplierPhone').value = s.phone || '';
-        document.getElementById('supplierAddress').value = s.address || '';
+        
+        const address = s.address || '';
+        const parts = address.split(', ');
+        if (parts.length >= 5) {
+            document.getElementById('addrZip').value = parts.pop();
+            document.getElementById('addrProv').value = parts.pop();
+            document.getElementById('addrCity').value = parts.pop();
+            document.getElementById('addrBrgy').value = parts.pop();
+            document.getElementById('addrStreet').value = parts.join(', ');
+        } else {
+            document.getElementById('addrStreet').value = address;
+            document.getElementById('addrBrgy').value = '';
+            document.getElementById('addrCity').value = '';
+            document.getElementById('addrProv').value = '';
+            document.getElementById('addrZip').value = '';
+        }
+        
         document.getElementById('supplierStatus').value = s.status;
         document.getElementById('supplierNotes').value = s.notes || '';
     } catch (e) {
@@ -102,12 +118,21 @@ async function loadSupplierForEdit(id) {
 async function saveSupplier(e) {
     e.preventDefault();
     const id = document.getElementById('supplierId').value;
+    
+    const addressParts = [
+        document.getElementById('addrStreet').value.trim(),
+        document.getElementById('addrBrgy').value.trim(),
+        document.getElementById('addrCity').value.trim(),
+        document.getElementById('addrProv').value.trim(),
+        document.getElementById('addrZip').value.trim()
+    ].filter(Boolean);
+    
     const body = JSON.stringify({
         name: document.getElementById('supplierName').value,
         contact_person: document.getElementById('contactPerson').value,
         email: document.getElementById('supplierEmail').value,
         phone: document.getElementById('supplierPhone').value,
-        address: document.getElementById('supplierAddress').value,
+        address: addressParts.join(', '),
         status: id ? document.getElementById('supplierStatus').value : 'active',
         notes: document.getElementById('supplierNotes').value,
     });

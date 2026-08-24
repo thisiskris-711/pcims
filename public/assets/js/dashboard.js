@@ -68,7 +68,8 @@ function renderSalesChart(data) {
                     cornerRadius: 8,
                     displayColors: false,
                     callbacks: {
-                        label: (ctx) => `Revenue: ₱${ctx.parsed.y.toFixed(2)}`,
+                        title: (tooltipItems) => `Date: ${tooltipItems[0].label}`,
+                        label: (ctx) => `Sales: ₱${ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
                     }
                 }
             },
@@ -123,20 +124,10 @@ function renderCategoryChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { right: 20 } },
+            layout: { padding: { bottom: 10 } },
             cutout: '65%',
             plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        color: '#94a3b8',
-                        font: { size: 12, family: 'Inter' },
-                        padding: 16,
-                        usePointStyle: true,
-                        boxWidth: 12,
-                        boxHeight: 12,
-                    }
-                },
+                legend: { display: false },
                 tooltip: {
                     backgroundColor: 'rgba(15, 22, 41, 0.9)',
                     titleColor: '#e2e8f0',
@@ -152,4 +143,41 @@ function renderCategoryChart(data) {
             }
         }
     });
+
+    const legendContainer = document.getElementById('categoryChartLegend');
+    if (legendContainer) {
+        const desiredOrder = [
+            "Fragrances", "Baby Care", "Home Care", "Houseware", "Health Care",
+            "Cosmetics", "Men's Care", "Personal Care", "Intimate Apparel", "Food and Beverage"
+        ];
+        
+        let legendHtml = '<div class="custom-category-legend">';
+        desiredOrder.forEach(catName => {
+            const idx = data.labels ? data.labels.indexOf(catName) : -1;
+            const color = (idx !== -1 && data.colors) ? data.colors[idx] : '#e2e8f0';
+            legendHtml += `
+                <div class="custom-category-legend-item">
+                    <span class="custom-category-legend-color" style="background-color: ${color}"></span>
+                    <span>${catName}</span>
+                </div>
+            `;
+        });
+        
+        // Append any categories not in desiredOrder
+        if (data.labels) {
+            data.labels.forEach((label, idx) => {
+                if (!desiredOrder.includes(label)) {
+                    legendHtml += `
+                        <div class="custom-category-legend-item">
+                            <span class="custom-category-legend-color" style="background-color: ${data.colors[idx]}"></span>
+                            <span>${label}</span>
+                        </div>
+                    `;
+                }
+            });
+        }
+        
+        legendHtml += '</div>';
+        legendContainer.innerHTML = legendHtml;
+    }
 }

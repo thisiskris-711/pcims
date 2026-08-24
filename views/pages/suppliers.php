@@ -68,50 +68,68 @@ include dirname(__DIR__) . '/layouts/header.php';
         <h3 class="modal-title" id="supplierModalTitle">Add Supplier</h3>
         <button class="modal-close" onclick="closeModal('supplierModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="padding-bottom: 8px;">
         <form id="supplierForm" onsubmit="saveSupplier(event)">
             <input type="hidden" id="supplierId" value="">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="supplierName">Supplier / Company Name *</label>
+            <input type="hidden" id="supplierAddress" value="">
+            
+            <div class="form-row" style="margin-bottom: 12px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="supplierName" style="font-weight: 600;">Supplier / Company Name <span style="color:var(--error-color);">*</span></label>
                     <input type="text" class="form-control" id="supplierName" required placeholder="e.g. Global Supplies Inc.">
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="contactPerson">Contact Person</label>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="contactPerson" style="font-weight: 600;">Contact Person <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
                     <input type="text" class="form-control" id="contactPerson" placeholder="Primary contact name">
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="supplierEmail">Email</label>
+            
+            <div class="form-row" style="margin-bottom: 16px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="supplierEmail" style="font-weight: 600;">Email <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
                     <input type="email" class="form-control" id="supplierEmail" placeholder="email@example.com">
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="supplierPhone">Phone</label>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label" for="supplierPhone" style="font-weight: 600;">Phone <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
                     <input type="text" class="form-control" id="supplierPhone" placeholder="Contact number">
                 </div>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="supplierAddress">Address</label>
-                <textarea class="form-control" id="supplierAddress" rows="2" placeholder="Full address"></textarea>
+
+            <!-- Structured Address -->
+            <div style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--border-radius-md); margin-bottom: 16px; border: 1px solid var(--border-color);">
+                <label class="form-label" style="font-weight: 600; margin-bottom: 12px; display: block;">Address <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <input type="text" class="form-control" id="addrStreet" placeholder="Street / Building Name">
+                </div>
+                <div class="form-row" style="margin-bottom: 12px;">
+                    <div class="form-group" style="margin-bottom: 0;"><input type="text" class="form-control" id="addrBrgy" placeholder="Barangay"></div>
+                    <div class="form-group" style="margin-bottom: 0;"><input type="text" class="form-control" id="addrCity" placeholder="City / Municipality"></div>
+                </div>
+                <div class="form-row" style="margin-bottom: 0; grid-template-columns: 60% 1fr;">
+                    <div class="form-group" style="margin-bottom: 0;"><input type="text" class="form-control" id="addrProv" placeholder="Province"></div>
+                    <div class="form-group" style="margin-bottom: 0;"><input type="text" class="form-control" id="addrZip" placeholder="ZIP Code"></div>
+                </div>
             </div>
-            <div class="form-group" id="statusGroup" style="display:none;">
-                <label class="form-label" for="supplierStatus">Status</label>
+            
+            <div class="form-group" id="statusGroup" style="display:none; margin-bottom: 16px;">
+                <label class="form-label" for="supplierStatus" style="font-weight: 600;">Status</label>
                 <select class="form-control" id="supplierStatus">
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label class="form-label" for="supplierNotes">Notes</label>
-                <textarea class="form-control" id="supplierNotes" rows="2" placeholder="Internal notes (optional)"></textarea>
+            
+            <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label" for="supplierNotes" style="font-weight: 600;">Notes <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
+                <textarea class="form-control" id="supplierNotes" rows="2" placeholder="Internal notes..."></textarea>
             </div>
         </form>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="padding-top: 16px;">
         <button class="btn btn-secondary" onclick="closeModal('supplierModal')">Cancel</button>
         <button class="btn btn-primary" onclick="document.getElementById('supplierForm').requestSubmit()">
-            <i data-lucide="save" style="width:16px;height:16px;"></i> Save
+            <i data-lucide="save" style="width:16px;height:16px;"></i> Save Supplier
         </button>
     </div>
 </div>
