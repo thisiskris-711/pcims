@@ -24,7 +24,9 @@ if (isset($_SESSION['last_reset_time'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($lockout_remaining > 0 || $cooldown > 0) {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? null)) {
+        $error = "Invalid or expired session. Please try again.";
+    } else if ($lockout_remaining > 0 || $cooldown > 0) {
         // Handled by UI
     } else if (!$limiter->check($ip, 'forgot_password', 1, 60)) {
         $rateStatus = $limiter->getStatus($ip, 'forgot_password', 1, 60);
@@ -112,6 +114,7 @@ $total_wait = max($lockout_remaining, $cooldown);
                 </div>
                 
                 <form method="POST" class="login-form" id="forgotForm">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <div class="form-group form-floating" style="position: relative;">
                         <input type="email" class="form-control" id="email" name="email" 
                                placeholder="Email Address" required autofocus style="padding-right: 40px;"

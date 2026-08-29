@@ -63,6 +63,10 @@ switch ($route) {
         require dirname(__DIR__) . '/views/pages/product_form.php';
         break;
 
+    case '/product_details':
+        require dirname(__DIR__) . '/views/pages/product_details.php';
+        break;
+
     case '/categories':
         require dirname(__DIR__) . '/views/pages/categories.php';
         break;
@@ -117,6 +121,14 @@ switch ($route) {
 
     case '/backup':
         require dirname(__DIR__) . '/views/pages/backup.php';
+        break;
+
+    case '/settings':
+        require dirname(__DIR__) . '/views/pages/settings.php';
+        break;
+
+    case '/account':
+        require dirname(__DIR__) . '/views/pages/account.php';
         break;
 
     // --- API ROUTES ---
@@ -190,6 +202,14 @@ switch ($route) {
 
     case '/api/backup':
         require dirname(__DIR__) . '/src/Api/backup.php';
+        break;
+
+    case '/api/settings':
+        require dirname(__DIR__) . '/src/Api/settings.php';
+        break;
+
+    case '/api/account':
+        require dirname(__DIR__) . '/src/Api/account.php';
         break;
 
     default:

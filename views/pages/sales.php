@@ -11,7 +11,11 @@ include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
 <div class="toolbar">
-    <div class="toolbar-left">
+    <div class="toolbar-left" style="gap: 12px; flex-wrap: wrap;">
+        <div class="search-bar" style="min-width: 200px;">
+            <span class="search-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></span>
+            <input type="text" class="form-control" id="salesSearch" placeholder="Search invoices...">
+        </div>
         <input type="date" class="form-control" id="salesDateFrom" style="width:auto;">
         <input type="date" class="form-control" id="salesDateTo" style="width:auto;">
         <select class="form-control" id="salesPayment" style="width:auto;min-width:130px;">
@@ -19,6 +23,14 @@ include dirname(__DIR__) . '/layouts/header.php';
             <option value="cash">Cash</option>
             <option value="credit">Credit</option>
             <option value="cash&credit">Cash & Credit</option>
+        </select>
+        <select class="form-control" id="salesStatus" style="width:auto;min-width:130px;">
+            <option value="">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="pending_approval">Pending Approval</option>
+            <option value="refunded">Refunded</option>
+            <option value="voided">Voided</option>
         </select>
     </div>
 </div>
@@ -68,16 +80,26 @@ let salesPage = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadSales();
-    ['salesDateFrom', 'salesDateTo', 'salesPayment'].forEach(id => {
+    ['salesDateFrom', 'salesDateTo', 'salesPayment', 'salesStatus'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => { salesPage = 1; loadSales(); });
     });
+    const searchInput = document.getElementById('salesSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(() => { salesPage = 1; loadSales(); }, 300));
+    }
 });
 
 async function loadSales() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const dealerId = urlParams.get('dealer_id') || '';
+
     const params = new URLSearchParams({
+        search: document.getElementById('salesSearch')?.value || '',
         date_from: document.getElementById('salesDateFrom')?.value || '',
         date_to: document.getElementById('salesDateTo')?.value || '',
         payment_method: document.getElementById('salesPayment')?.value || '',
+        status: document.getElementById('salesStatus')?.value || '',
+        dealer_id: dealerId,
         page: salesPage,
     });
     
@@ -134,7 +156,6 @@ async function viewSaleDetail(id) {
                 <td><code>${escapeHtml(item.sku || '—')}</code></td>
                 <td class="text-center">${item.quantity}</td>
                 <td>${formatCurrency(item.unit_price)}</td>
-                <td class="text-muted">${parseFloat(item.discount) > 0 ? formatCurrency(item.discount) : '—'}</td>
                 <td class="font-bold">${formatCurrency(item.total)}</td>
             </tr>
         `).join('');
@@ -159,7 +180,7 @@ async function viewSaleDetail(id) {
             </div>
             <div class="table-wrapper">
                 <table>
-                    <thead><tr><th>Product</th><th>SKU</th><th class="text-center">Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Product</th><th>SKU</th><th class="text-center">Qty</th><th>Price</th><th>Total</th></tr></thead>
                     <tbody>${itemsHtml}</tbody>
                 </table>
             </div>

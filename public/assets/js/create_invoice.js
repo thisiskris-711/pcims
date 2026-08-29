@@ -139,7 +139,17 @@ function filterPOSCategory(btn, catId) {
 function addToCart(productId) {
     let product = posProducts.find(p => p.id == productId);
     if (!product && window.RECOMMENDED_PRODUCTS) {
-        product = window.RECOMMENDED_PRODUCTS.find(p => p.id == productId);
+        const rec = window.RECOMMENDED_PRODUCTS.find(p => (p.id || p.product_id) == productId);
+        if (rec) {
+            product = {
+                id: rec.id || rec.product_id,
+                name: rec.name,
+                selling_price: rec.selling_price,
+                quantity: rec.stock !== undefined ? rec.stock : rec.quantity,
+                active_promo: rec.active_promo,
+                promo_desc: rec.promo_desc
+            };
+        }
     }
     
     if (!product || product.quantity <= 0) {
@@ -210,7 +220,7 @@ function renderCart() {
                 <div class="cart-item-price">${formatCurrency(item.unit_price)}</div>
                 <div class="cart-item-qty">
                     <button onclick="updateCartQty(${idx}, -1)">−</button>
-                    <span>${item.quantity}</span>
+                    <input type="number" value="${item.quantity}" min="1" max="${item.max_stock}" onchange="setCartQty(${idx}, this.value)" style="width: 45px; text-align: center; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px; -moz-appearance: textfield;">
                     <button onclick="updateCartQty(${idx}, 1)">+</button>
                 </div>
                 <div class="cart-item-total">${formatCurrency(item.unit_price * item.quantity)}</div>
@@ -237,6 +247,26 @@ function updateCartQty(index, delta) {
     if (newQty > item.max_stock) {
         showToast('Maximum stock reached', 'warning');
         return;
+    }
+    
+    item.quantity = newQty;
+    renderCart();
+}
+
+function setCartQty(index, value) {
+    const item = cart[index];
+    if (!item) return;
+    
+    let newQty = parseInt(value, 10);
+    
+    if (isNaN(newQty) || newQty <= 0) {
+        removeFromCart(index);
+        return;
+    }
+    
+    if (newQty > item.max_stock) {
+        showToast('Maximum stock reached', 'warning');
+        newQty = item.max_stock;
     }
     
     item.quantity = newQty;
@@ -340,24 +370,43 @@ function updateCartTotals() {
     }
 
     const discountedSubtotal = subtotal - promoDiscount;
-    const dealerDiscount = discountedSubtotal * 0.25;
+    const dealerDiscount = selectedDealer ? (discountedSubtotal * 0.25) : 0;
     const totalDiscount = promoDiscount + dealerDiscount;
     const total = subtotal - totalDiscount;
+
+    const netOfVat = total / 1.12;
+    const tax = total - netOfVat;
     
     // Update checkout modal input
     const discountInput = document.getElementById('orderDiscount');
     if (discountInput) {
         discountInput.value = totalDiscount.toFixed(2);
     }
+    const taxInput = document.getElementById('orderTax');
+    if (taxInput) {
+        taxInput.value = tax.toFixed(2);
+    }
+    const invoiceModalTax = document.getElementById('invoiceModalTax');
+    if (invoiceModalTax) {
+        invoiceModalTax.textContent = formatCurrency(tax);
+    }
     
     document.getElementById('cartSubtotal').textContent = formatCurrency(subtotal);
     
     // Show promo breakdown if applicable
-    const discountEl = document.getElementById('cartDiscount');
-    if (promoDiscount > 0) {
-        discountEl.innerHTML = `-<br><span style="font-size:0.7rem">Promo: ${formatCurrency(promoDiscount)}<br>Dealer: ${formatCurrency(dealerDiscount)}</span>`;
-    } else {
-        discountEl.textContent = '-' + formatCurrency(dealerDiscount);
+    const promoDiscountRow = document.getElementById('promoDiscountRow');
+    if (promoDiscountRow) {
+        if (promoDiscount > 0) {
+            promoDiscountRow.style.display = 'flex';
+            document.getElementById('cartPromoDiscount').textContent = '-' + formatCurrency(promoDiscount);
+        } else {
+            promoDiscountRow.style.display = 'none';
+        }
+    }
+    
+    const cartDealerDiscount = document.getElementById('cartDealerDiscount');
+    if (cartDealerDiscount) {
+        cartDealerDiscount.textContent = '-' + formatCurrency(dealerDiscount);
     }
     document.getElementById('cartTotal').textContent = formatCurrency(total);
     
@@ -367,9 +416,23 @@ function updateCartTotals() {
     const invoiceModalSubtotal = document.getElementById('invoiceModalSubtotal');
     if (invoiceModalSubtotal) invoiceModalSubtotal.textContent = formatCurrency(subtotal);
 
+    const invoiceModalPromoRow = document.getElementById('invoiceModalPromoRow');
+    if (invoiceModalPromoRow) {
+        if (promoDiscount > 0) {
+            invoiceModalPromoRow.style.display = 'flex';
+            document.getElementById('invoiceModalPromoDiscount').textContent = '-' + formatCurrency(promoDiscount);
+        } else {
+            invoiceModalPromoRow.style.display = 'none';
+        }
+    }
+
     const invoiceModalDiscount = document.getElementById('invoiceModalDiscount');
-    if (invoiceModalDiscount) invoiceModalDiscount.textContent = '-' + formatCurrency(totalDiscount);
+    if (invoiceModalDiscount) invoiceModalDiscount.textContent = '-' + formatCurrency(dealerDiscount);
     
+    const cartDiscount = document.getElementById('cartDiscount');
+    if (cartDiscount) {
+        cartDiscount.textContent = '-' + formatCurrency(dealerDiscount);
+    }
     // Update credit warning if applicable
     onPaymentStatusChange();
 }
@@ -418,6 +481,9 @@ function selectDealer(id, name, code, creditLimit, creditBalance) {
     const available = creditLimit - creditBalance;
     document.getElementById('selectedDealerInfo').style.display = 'block';
     document.getElementById('selectedDealerInfo').innerHTML = `
+        <div style="font-weight:600; font-size:1rem; margin-bottom:8px; color:var(--text-primary);">
+            ${escapeHtml(name)} <span style="color:var(--text-muted); font-size:0.85rem; font-weight:normal; margin-left:6px;">Code: ${escapeHtml(code)}</span>
+        </div>
         <div style="display:flex;justify-content:space-between;font-size:0.85rem;">
             <span style="color:var(--text-muted);">Credit Limit: <strong>${formatCurrency(creditLimit)}</strong></span>
             <span style="color:var(--text-muted);">Outstanding: <strong style="color:var(--warning-color);">${formatCurrency(creditBalance)}</strong></span>
@@ -426,6 +492,7 @@ function selectDealer(id, name, code, creditLimit, creditBalance) {
     `;
 
     onPaymentStatusChange();
+    updateCartTotals();
 }
 
 function onPaymentStatusChange() {
@@ -466,7 +533,6 @@ function onPaymentStatusChange() {
         warning.style.display = 'none';
     }
 }
-
 function openCheckoutModal() {
     if (cart.length === 0) return;
 
@@ -483,6 +549,7 @@ function openCheckoutModal() {
     document.getElementById('creditWarning').style.display = 'none';
     document.getElementById('orderDiscount').value = '0';
     document.getElementById('checkoutNotes').value = '';
+    document.getElementById('invoiceNo').value = 'Auto-generated';
     
     if(typeof onPaymentMethodChange === 'function') onPaymentMethodChange();
 
@@ -531,6 +598,8 @@ async function processPayment() {
         cash_received: parseFloat(document.getElementById('cashReceived').value || 0),
         payment_status: document.getElementById('paymentStatus')?.value || 'paid',
         notes: document.getElementById('checkoutNotes').value,
+        due_date: document.getElementById('dueDate')?.value || '',
+        invoice_date: document.getElementById('invoiceDate')?.value || '',
     });
     
     try {
@@ -565,18 +634,22 @@ function onPaymentMethodChange() {
     const cashInputRow = document.getElementById('cashInputRow');
     const changeLabel = document.getElementById('changeLabel');
     const cashReceived = document.getElementById('cashReceived');
+    const dueDateWrapper = document.getElementById('dueDateWrapper');
     
     if (paymentMethod === 'cash') {
         cashInputRow.style.display = 'flex';
         changeLabel.textContent = 'Change';
         cashReceived.disabled = false;
+        if (dueDateWrapper) dueDateWrapper.style.display = 'none';
     } else if (paymentMethod === 'credit') {
         cashInputRow.style.display = 'none';
         cashReceived.value = '';
+        if (dueDateWrapper) dueDateWrapper.style.display = 'flex';
     } else if (paymentMethod === 'cash&credit') {
         cashInputRow.style.display = 'flex';
         changeLabel.textContent = 'Credit Portion';
         cashReceived.disabled = false;
+        if (dueDateWrapper) dueDateWrapper.style.display = 'flex';
     }
     
     calculateChange();

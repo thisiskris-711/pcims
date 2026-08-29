@@ -23,7 +23,9 @@ if (!$rateStatus['allowed']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action']) && $_POST['action'] === 'resend_verification') {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? null)) {
+        $error = "Invalid or expired session. Please try again.";
+    } elseif (isset($_POST['action']) && $_POST['action'] === 'resend_verification') {
         enforceRateLimit('resend_verify', 3, 300);
         $username = trim($_POST['username'] ?? '');
         $db = getDB();
@@ -129,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <form method="POST" class="login-form" id="loginForm">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     <div class="form-group form-floating">
                         <input type="text" class="form-control" id="username" name="username"
                             placeholder="Username" autocomplete="username"

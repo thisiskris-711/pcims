@@ -28,7 +28,7 @@ function loadRoles() {
 function renderRolesTable() {
     const tbody = document.getElementById('rolesBody');
     if (!rolesData || rolesData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No roles found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No roles found.</td></tr>';
         return;
     }
     
@@ -40,10 +40,11 @@ function renderRolesTable() {
         return `
             <tr>
                 <td>${role.id}</td>
-                <td><strong>${role.name}</strong> ${isStandard ? '<span class="badge badge-primary">System</span>' : ''}</td>
+                <td><strong>${role.name}</strong></td>
+                <td><span class="badge ${isStandard ? 'badge-primary' : 'badge-gray'}">${isStandard ? 'System' : 'Custom'}</span></td>
                 <td>${role.display_name}</td>
-                <td>${permsCount} permission(s)</td>
-                <td>
+                <td>${permsCount === 1 ? '1 permission' : permsCount + ' permissions'}</td>
+                <td style="text-align: right;">
                     <button class="btn btn-ghost btn-icon sm" title="Edit" onclick="editRole(${role.id})">
                         <i data-lucide="edit-2" style="width:15px;height:15px;"></i>
                     </button>
@@ -125,7 +126,8 @@ function saveRole(e) {
     fetch(APP_URL + '/api/roles', {
         method: method,
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': window.CSRF_TOKEN || ''
         },
         body: JSON.stringify(payload)
     })
@@ -156,7 +158,8 @@ function deleteRole(id, name) {
     fetch(APP_URL + '/api/roles', {
         method: 'DELETE',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': window.CSRF_TOKEN || ''
         },
         body: JSON.stringify({ id: id })
     })

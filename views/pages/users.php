@@ -8,7 +8,7 @@ requireLogin();
 requirePermission('manage_users');
 
 $db = getDB();
-$stmt = $db->query("SELECT name, display_name, permissions FROM roles ORDER BY display_name ASC");
+$stmt = $db->query("SELECT name, display_name, permissions FROM roles WHERE name != 'sample' ORDER BY display_name ASC");
 $allRoles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $canManageRoles = hasPermission('manage_roles');
@@ -51,7 +51,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <th>Status</th>
                         <th>Last Login</th>
                         <th>Joined</th>
-                        <th style="width:100px;">Actions</th>
+                        <th style="width:140px; text-align: right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usersBody">
@@ -87,14 +87,15 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <tr>
                             <th style="width:50px;">ID</th>
                             <th>Role Name (ID)</th>
+                            <th>Role Type</th>
                             <th>Display Name</th>
                             <th>Permissions Count</th>
-                            <th style="width:120px;">Actions</th>
+                            <th style="width:120px; text-align: right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="rolesBody">
                         <tr>
-                            <td colspan="5" class="text-center text-muted" style="padding:40px;">Loading...</td>
+                            <td colspan="6" class="text-center text-muted" style="padding:40px;">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -128,9 +129,15 @@ include dirname(__DIR__) . '/layouts/header.php';
                 </div>
             </div>
             <div class="form-row">
-                <div class="form-group">
+                <div class="form-group" style="position: relative;">
                     <label class="form-label" id="passwordLabel" for="userPassword">Password *</label>
-                    <input type="password" class="form-control" id="userPassword" placeholder="Min 6 characters" minlength="6">
+                    <div style="position: relative;">
+                        <input type="password" class="form-control" id="userPassword" placeholder="Min 8 characters" minlength="8">
+                        <button type="button" class="btn btn-ghost btn-icon" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%);" onclick="togglePasswordVisibility('userPassword', this)">
+                            <i data-lucide="eye" style="width:16px;height:16px;color:var(--text-muted);"></i>
+                        </button>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Minimum 8 characters. Must contain at least 1 uppercase letter and 1 number.</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="userRole">Role *</label>
@@ -145,28 +152,14 @@ include dirname(__DIR__) . '/layouts/header.php';
         </form>
     </div>
     <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="document.getElementById('userForm').requestSubmit()">
-            <i data-lucide="save" style="width:16px;height:16px;"></i> Save
+        <button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
+        <button type="button" class="btn btn-primary" style="background-color: var(--accent-primary); border-color: var(--accent-primary);" onclick="document.getElementById('userForm').requestSubmit()">
+            Add User
         </button>
     </div>
 </div>
 
-<!-- Permissions Modal -->
-<div class="modal" id="permissionsModal">
-    <div class="modal-header">
-        <h3 class="modal-title">Manage Permissions: <span id="permUserName"></span></h3>
-        <button class="modal-close" onclick="closeModal('permissionsModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
-    </div>
-    <div class="modal-body" id="permissionsBody" style="padding: 0;">
-        <input type="hidden" id="permUserId">
-        <!-- Checkboxes populated here -->
-    </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('permissionsModal')">Cancel</button>
-        <button class="btn btn-primary" onclick="submitPermissions()">Confirm</button>
-    </div>
-</div>
+
 
 <script>
     const currentUserId = <?= getCurrentUserId() ?>;
@@ -224,17 +217,19 @@ include dirname(__DIR__) . '/layouts/header.php';
             <td><span class="status status-${u.status}">${u.status}</span></td>
             <td class="text-muted">${u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Never'}</td>
             <td class="text-muted">${new Date(u.created_at).toLocaleDateString()}</td>
-            <td>
-                <div class="d-flex gap-1">
-
+            <td style="text-align: right;">
+                <div class="d-flex gap-1" style="justify-content: flex-end;">
                     ${u.id != currentUserId ? `
-                    <button class="btn btn-ghost btn-icon sm" title="Permissions" onclick="event.stopPropagation(); openPermissionsModalById(${u.id})">
+                    <button class="btn btn-ghost btn-icon sm" data-tooltip="Edit User" onclick="event.stopPropagation(); editUserById(${u.id})">
+                        <i data-lucide="pencil" style="width:15px;height:15px;color:var(--text-secondary);"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-icon sm" data-tooltip="${u.status === 'active' ? 'Disable User' : 'Enable User'}" onclick="event.stopPropagation(); toggleUserStatus(${u.id}, '${u.status}')">
+                        <i data-lucide="${u.status === 'active' ? 'ban' : 'check-circle'}" style="width:15px;height:15px;color:${u.status === 'active' ? 'var(--accent-amber)' : 'var(--accent-emerald)'};"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-icon sm" data-tooltip="Reset Password" onclick="event.stopPropagation(); resetPasswordById(${u.id})">
                         <i data-lucide="key" style="width:15px;height:15px;color:var(--accent-violet);"></i>
                     </button>
-                    <button class="btn btn-ghost btn-icon sm" title="Toggle Status" onclick="event.stopPropagation(); toggleUserStatus(${u.id}, '${u.status}')">
-                        <i data-lucide="${u.status === 'active' ? 'user-x' : 'user-check'}" style="width:15px;height:15px;color:${u.status === 'active' ? 'var(--accent-amber)' : 'var(--accent-emerald)'};"></i>
-                    </button>
-                    <button class="btn btn-ghost btn-icon sm" title="Delete" onclick="event.stopPropagation(); deleteUserById(${u.id})">
+                    <button class="btn btn-ghost btn-icon sm" data-tooltip="Delete User" onclick="event.stopPropagation(); deleteUserById(${u.id})">
                         <i data-lucide="trash-2" style="width:15px;height:15px;color:var(--accent-rose);"></i>
                     </button>
                     ` : ''}
@@ -281,11 +276,31 @@ include dirname(__DIR__) . '/layouts/header.php';
         if (user) deleteUser(user.id, user.full_name);
     }
 
-    function openPermissionsModalById(id) {
-        const u = globalUsersList.find(user => user.id == id);
-        if (u) {
-            openPermissionsModal(u.id, u.full_name, u.role, u.permissions ? u.permissions : null);
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i') || btn.querySelector('svg');
+        if (!icon) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-lucide', 'eye');
         }
+        lucide.createIcons({ nodes: [btn] });
+    }
+
+    function resetPasswordById(id) {
+        editUserById(id);
+        setTimeout(() => {
+            const pwInput = document.getElementById('userPassword');
+            if (pwInput) {
+                pwInput.focus();
+                // Optionally highlight the field
+                pwInput.style.borderColor = 'var(--accent-primary)';
+                setTimeout(() => pwInput.style.borderColor = '', 1500);
+            }
+        }, 100);
     }
 
     async function saveUser(e) {
@@ -352,78 +367,6 @@ include dirname(__DIR__) . '/layouts/header.php';
         }
     }
 
-    function openPermissionsModal(id, name, role, permsString) {
-        document.getElementById('permUserName').textContent = name;
-        document.getElementById('permUserId').value = id;
-        const container = document.getElementById('permissionsBody-checkboxes');
-        if (!container) {
-            // First time setup
-            const div = document.createElement('div');
-            div.id = 'permissionsBody-checkboxes';
-            document.getElementById('permissionsBody').appendChild(div);
-        }
-        const checkboxesContainer = document.getElementById('permissionsBody-checkboxes');
-
-        if (role === 'admin') {
-            checkboxesContainer.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Admin users have all permissions by default.</div>';
-            openModal('permissionsModal');
-            return;
-        }
-
-        let perms = [];
-        if (!permsString || permsString === 'null') {
-            // Fallback to role presets if permissions are null or empty (meaning they haven't explicitly customized yet)
-            perms = rolePresets[role] || [];
-        } else {
-            try {
-                if (Array.isArray(permsString)) {
-                    perms = permsString;
-                } else {
-                    perms = JSON.parse(permsString);
-                }
-                if (!Array.isArray(perms)) perms = [];
-            } catch (e) {
-                perms = rolePresets[role] || [];
-            }
-        }
-
-        checkboxesContainer.innerHTML = availablePermissions.map(p => `
-        <label class="d-flex align-center gap-2" style="padding:15px 20px; border-bottom:1px solid var(--border-color); cursor:pointer;">
-            <input type="checkbox" value="${p.id}" ${perms.includes(p.id) ? 'checked' : ''} style="width:18px;height:18px;">
-            <span style="font-weight:500;">${p.label}</span>
-        </label>
-    `).join('');
-
-        openModal('permissionsModal');
-    }
-
-    async function submitPermissions() {
-        const userId = document.getElementById('permUserId').value;
-        if (!userId) return;
-        
-        const checkboxes = document.querySelectorAll('#permissionsBody-checkboxes input[type="checkbox"]:checked');
-        const newPerms = Array.from(checkboxes).map(cb => cb.value);
-
-        try {
-            await apiRequest(`/api/users?id=${userId}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    permissions: newPerms
-                })
-            });
-            showToast('Permissions updated');
-            closeModal('permissionsModal');
-            
-            // Clean up modal state
-            document.getElementById('permUserId').value = '';
-            document.getElementById('permissionsBody-checkboxes').innerHTML = '';
-            
-            loadUsers();
-        } catch (e) {
-            showToast(e.message || 'Failed to update permissions', 'error');
-        }
-    }
-    
     function switchTab(event, tabId) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -456,20 +399,44 @@ include dirname(__DIR__) . '/layouts/header.php';
             </div>
             
             <fieldset class="form-group" style="margin-top: 20px; border: none; padding: 0;">
-                <legend class="form-label" style="padding: 0; margin-bottom: 8px;">Permissions</legend>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-tertiary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <?php foreach ($allPermissions as $key => $label): ?>
-                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
-                        <input type="checkbox" name="permissions[]" value="<?= htmlspecialchars($key) ?>" class="role-permission-cb">
-                        <?= htmlspecialchars($label) ?>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <legend class="form-label" style="padding: 0; margin: 0;">Permissions</legend>
+                    <label style="font-size: 0.8rem; cursor: pointer; color: var(--accent-primary); font-weight: 500;">
+                        <input type="checkbox" onchange="document.querySelectorAll('.role-permission-cb').forEach(cb => cb.checked = this.checked)" style="margin-right: 4px; vertical-align: middle;">
+                        Select All
                     </label>
+                </div>
+                
+                <?php
+                $permGroups = [
+                    'Users & Roles' => ['manage_users', 'manage_roles'],
+                    'Inventory' => ['manage_products', 'manage_inventory', 'manage_suppliers'],
+                    'Sales' => ['view_sales', 'create_sales', 'approve_sales'],
+                    'Administration & Reports' => ['manage_dealers', 'view_reports', 'manage_backups']
+                ];
+                ?>
+                <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 16px;">
+                    <?php foreach ($permGroups as $groupName => $keys): ?>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;"><?= $groupName ?></div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <?php foreach ($keys as $key): ?>
+                                <?php if (isset($allPermissions[$key])): ?>
+                                <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                                    <input type="checkbox" name="permissions[]" value="<?= htmlspecialchars($key) ?>" class="role-permission-cb">
+                                    <?= htmlspecialchars($allPermissions[$key]) ?>
+                                </label>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                     <?php endforeach; ?>
                 </div>
             </fieldset>
             
             <div class="form-actions" style="margin-top:20px; display:flex; justify-content:flex-end; gap:10px;">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('roleModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="btnSaveRole">Save Role</button>
+                <button type="submit" class="btn btn-primary" style="background-color: var(--accent-primary); border-color: var(--accent-primary);" id="btnSaveRole">Save Role</button>
             </div>
         </form>
     </div>

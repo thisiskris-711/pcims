@@ -2980,3 +2980,14 @@ textarea.form-control {
     pointer-events: auto;
     cursor: help;
 }
+
+/* Hide number input spinners globally */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}

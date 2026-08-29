@@ -90,7 +90,9 @@ switch ($method) {
         } elseif ($creditStatus === 'outstanding') {
             $where .= " AND d.credit_balance > 0";
         } elseif ($creditStatus === 'near_limit') {
-            $where .= " AND (d.credit_limit > 0 AND (d.credit_balance / d.credit_limit) >= 0.8)";
+            $where .= " AND (d.credit_limit > 0 AND (d.credit_balance / d.credit_limit) >= 0.8 AND (d.credit_balance / d.credit_limit) <= 1.0)";
+        } elseif ($creditStatus === 'over_limit') {
+            $where .= " AND (d.credit_limit > 0 AND (d.credit_balance / d.credit_limit) > 1.0)";
         }
 
         $countStmt = $db->prepare("SELECT COUNT(*) FROM dealers d WHERE $where");

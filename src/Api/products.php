@@ -136,7 +136,7 @@ switch ($method) {
                         'stock' => intval($comp['stock'])
                     ];
                     $bundleProducts[] = $compObj;
-                    
+
                     if ($cartQty < $comp['required_qty']) {
                         $missingProducts[] = $compObj;
                     }
@@ -209,7 +209,7 @@ switch ($method) {
                     $regularPrice = 0;
                     $missingProducts = [];
                     $bundleProducts = [];
-                    
+
                     // Pre-fetch product data for components
                     $compIds = [];
                     foreach ($config['components'] as $comp) {
@@ -217,7 +217,7 @@ switch ($method) {
                             $compIds[] = intval(str_replace('product_', '', $comp['target']));
                         }
                     }
-                    
+
                     $totalPresentQty = 0;
                     if (!empty($compIds)) {
                         $placeholders = implode(',', array_fill(0, count($compIds), '?'));
@@ -227,15 +227,15 @@ switch ($method) {
                         while ($row = $stmt->fetch()) {
                             $compProductsData[$row['id']] = $row;
                         }
-                        
+
                         foreach ($config['components'] as $comp) {
                             if (!str_starts_with($comp['target'], 'product_')) continue;
                             $pId = intval(str_replace('product_', '', $comp['target']));
                             $qty = intval($comp['qty']);
-                            
+
                             if (!isset($compProductsData[$pId])) continue;
                             $prod = $compProductsData[$pId];
-                            
+
                             $regularPrice += (float)$prod['selling_price'] * $qty;
                             $cartQty = intval($_GET['cart_qty'][$pId] ?? 0);
                             $missingQty = max(0, $qty - $cartQty);
@@ -249,7 +249,7 @@ switch ($method) {
                                 'stock' => intval($prod['stock'])
                             ];
                             $bundleProducts[] = $compObj;
-                            
+
                             if ($cartQty < $qty) {
                                 $missingProducts[] = $compObj;
                             }
@@ -328,7 +328,7 @@ switch ($method) {
                     }
                 }
             }
-            
+
             // Attach active promos to recommendations and bundles for cart badging
             $promoStmt2 = $db->query("
                 SELECT name, description, config, type, start_date, end_date
@@ -339,7 +339,7 @@ switch ($method) {
             ");
             $activePromos2 = $promoStmt2->fetchAll(PDO::FETCH_ASSOC);
 
-            $attachPromoToArr = function(&$arr) use ($activePromos2) {
+            $attachPromoToArr = function (&$arr) use ($activePromos2) {
                 foreach ($arr as &$p) {
                     foreach ($activePromos2 as $promo) {
                         $config = json_decode($promo['config'], true);
@@ -365,7 +365,7 @@ switch ($method) {
                             } elseif ($promo['start_date']) {
                                 $validity = " (Valid from " . date('M j, Y', strtotime($promo['start_date'])) . ")";
                             }
-                            
+
                             $p['active_promo'] = $promo['name'];
                             $p['promo_desc'] = ($promo['description'] ?: $promo['name']) . $validity;
                             break;
@@ -373,7 +373,7 @@ switch ($method) {
                     }
                 }
             };
-            
+
             $attachPromoToArr($recommendations);
             $attachPromoToArr($bundles);
 
@@ -416,7 +416,16 @@ switch ($method) {
             $where .= " AND p.expiry_date IS NOT NULL AND p.expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)";
         } elseif ($filter === 'expired') {
             $where .= " AND p.expiry_date IS NOT NULL AND p.expiry_date < CURDATE()";
+        } elseif ($filter === 'incomplete') {
+            $where .= " AND p.selling_price = 0 AND p.quantity = 0";
         }
+
+        $sort = $_GET['sort'] ?? 'name';
+        $dir = strtoupper($_GET['dir'] ?? 'ASC');
+        if (!in_array($dir, ['ASC', 'DESC'])) $dir = 'ASC';
+
+        $allowedSorts = ['name' => 'p.name', 'selling_price' => 'p.selling_price', 'quantity' => 'p.quantity', 'sku' => 'p.sku'];
+        $orderBy = $allowedSorts[$sort] ?? 'p.name';
 
         // Count
         $countStmt = $db->prepare("SELECT COUNT(*) FROM products p WHERE $where");
@@ -432,7 +441,7 @@ switch ($method) {
             LEFT JOIN categories c ON p.category_id = c.id 
             LEFT JOIN users u ON p.created_by = u.id
             WHERE $where
-            ORDER BY p.name ASC
+            ORDER BY $orderBy $dir
             LIMIT $perPage OFFSET $offset
         ");
         $stmt->execute($params);
@@ -474,7 +483,7 @@ switch ($method) {
                     } elseif ($promo['start_date']) {
                         $validity = " (Valid from " . date('M j, Y', strtotime($promo['start_date'])) . ")";
                     }
-                    
+
                     $p['active_promo'] = $promo['name'];
                     $p['promo_desc'] = ($promo['description'] ?: $promo['name']) . $validity;
                     break;
@@ -515,6 +524,7 @@ switch ($method) {
         break;
 
     case 'POST':
+        verifyCSRFToken();
         requirePermission('manage_products');
         $action = $_GET['action'] ?? '';
 
@@ -524,7 +534,7 @@ switch ($method) {
             if (empty($ids) || !is_array($ids)) jsonResponse(['error' => 'No products selected'], 400);
 
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            
+
             // Check for existing sales or stock records before deleting
             $checkStmt = $db->prepare("
                 SELECT product_id FROM sale_items WHERE product_id IN ($placeholders)
@@ -618,6 +628,7 @@ switch ($method) {
         break;
 
     case 'PUT':
+        verifyCSRFToken();
         requirePermission('manage_products');
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Product ID required'], 400);
@@ -658,6 +669,7 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        verifyCSRFToken();
         requirePermission('manage_products');
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Product ID required'], 400);
@@ -675,8 +687,8 @@ switch ($method) {
             jsonResponse(['error' => 'Cannot delete this product because it has existing stock records. Consider making it Inactive instead.'], 400);
         }
 
-        // Get image to delete
-        $stmt = $db->prepare("SELECT image FROM products WHERE id = ?");
+        // Get image and 3D model to delete
+        $stmt = $db->prepare("SELECT image, model_3d FROM products WHERE id = ?");
         $stmt->execute([$id]);
         $product = $stmt->fetch();
 
@@ -684,6 +696,9 @@ switch ($method) {
 
         if ($product['image']) {
             deleteUploadedFile($product['image']);
+        }
+        if (!empty($product['model_3d'])) {
+            deleteUploadedFile($product['model_3d']);
         }
 
         $stmt = $db->prepare("DELETE FROM products WHERE id = ?");

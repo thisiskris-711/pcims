@@ -30,6 +30,7 @@ switch ($method) {
         break;
         
     case 'POST':
+        verifyCSRFToken();
         // Prevent abuse: Max 10 user creations per hour per IP
         enforceRateLimit('admin_create_user', 10, 3600);
         
@@ -45,14 +46,22 @@ switch ($method) {
             jsonResponse(['error' => 'All fields are required'], 400);
         }
         
-        if (strlen($password) < 6) {
-            jsonResponse(['error' => 'Password must be at least 6 characters'], 400);
+        if (strlen($password) < 8 || !preg_match('/[0-9\W]/', $password)) {
+            jsonResponse(['error' => 'Password must be at least 8 characters and contain at least one number or symbol'], 400);
+        }
+        
+        if (isset($input['role']) && !hasRole(ROLE_ADMIN)) {
+            jsonResponse(['error' => 'Only administrators can assign or change roles'], 403);
         }
         
         // Check duplicates
-        $check = $db->prepare("SELECT id FROM users WHERE username = ? OR email = ?");
-        $check->execute([$username, $email]);
-        if ($check->fetch()) jsonResponse(['error' => 'Username or email already exists'], 400);
+        $checkUser = $db->prepare("SELECT id FROM users WHERE username = ?");
+        $checkUser->execute([$username]);
+        if ($checkUser->fetch()) jsonResponse(['error' => 'Username "' . $username . '" already exists'], 400);
+        
+        $checkEmail = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $checkEmail->execute([$email]);
+        if ($checkEmail->fetch()) jsonResponse(['error' => 'Email "' . $email . '" is already used by another account'], 400);
         
         // Do not bake presets into the user row. Use NULL to indicate inheritance.
         
@@ -71,6 +80,7 @@ switch ($method) {
         break;
         
     case 'PUT':
+        verifyCSRFToken();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'User ID required'], 400);
         
@@ -92,6 +102,9 @@ switch ($method) {
         }
         
         if (isset($input['role'])) { 
+            if (!hasRole(ROLE_ADMIN)) {
+                jsonResponse(['error' => 'Only administrators can assign or change roles'], 403);
+            }
             $stmt = $db->prepare("SELECT role FROM users WHERE id = ?");
             $stmt->execute([$id]);
             $oldRole = $stmt->fetchColumn();
@@ -106,8 +119,11 @@ switch ($method) {
         if (isset($input['status'])) { $fields[] = "status = ?"; $values[] = $input['status']; }
         
         if (!empty($input['password'])) {
-            if (strlen($input['password']) < 6) jsonResponse(['error' => 'Password must be at least 6 characters'], 400);
+            if (strlen($input['password']) < 8 || !preg_match('/[0-9\W]/', $input['password'])) {
+                jsonResponse(['error' => 'Password must be at least 8 characters and contain at least one number or symbol'], 400);
+            }
             $fields[] = "password_hash = ?";
+            $fields[] = "force_password_reset = 0"; // clear reset flag when admin manually updates password
             $values[] = password_hash($input['password'], PASSWORD_DEFAULT);
         }
         

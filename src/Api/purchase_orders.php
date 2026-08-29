@@ -90,6 +90,7 @@ switch ($method) {
         break;
 
     case 'POST':
+        verifyCSRFToken();
         $action = $_GET['action'] ?? '';
 
         if ($action === 'receive') {
@@ -237,6 +238,7 @@ switch ($method) {
         break;
 
     case 'PUT':
+        verifyCSRFToken();
         $id = (int)($_GET['id'] ?? 0);
         $action = $_GET['action'] ?? '';
         
@@ -270,6 +272,7 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        verifyCSRFToken();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'PO ID required'], 400);
 

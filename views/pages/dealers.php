@@ -38,6 +38,7 @@ include dirname(__DIR__) . '/layouts/header.php';
             <option value="no_outstanding">No Outstanding</option>
             <option value="outstanding">Has Outstanding</option>
             <option value="near_limit">Near Credit Limit</option>
+            <option value="over_limit">Over Credit Limit</option>
         </select>
         <select class="form-control" id="sortFilter" style="width:auto;min-width:140px;">
             <option value="name">Sort by Name</option>
@@ -330,6 +331,36 @@ include dirname(__DIR__) . '/layouts/header.php';
 </div>
 <?php endif; ?>
 
+
+
+<!-- Dealer Detail Modal -->
+<div class="modal modal-xl" id="detailModal">
+    <div class="modal-header">
+        <h3 class="modal-title" id="detailModalTitle">Dealer Details</h3>
+        <button class="modal-close" onclick="closeModal('detailModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body" id="detailModalBody">
+        <div class="text-center text-muted" style="padding:40px;">Loading...</div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
+    </div>
+</div>
+
+<!-- Application Detail Modal -->
+<div class="modal modal-lg" id="applicationModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Application Details</h3>
+        <button class="modal-close" onclick="closeModal('applicationModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body" id="applicationModalBody">
+        <div class="text-center text-muted" style="padding:40px;">Loading...</div>
+    </div>
+    <div class="modal-footer" id="applicationModalFooter">
+        <button class="btn btn-secondary" onclick="closeModal('applicationModal')">Close</button>
+    </div>
+</div>
+
 <?php if (hasRole(ROLE_ADMIN, ROLE_MANAGER)): ?>
 <!-- Create Credit Memo Modal -->
 <div class="modal" id="memoModal">
@@ -359,34 +390,6 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 <?php endif; ?>
-
-<!-- Dealer Detail Modal -->
-<div class="modal modal-xl" id="detailModal">
-    <div class="modal-header">
-        <h3 class="modal-title" id="detailModalTitle">Dealer Details</h3>
-        <button class="modal-close" onclick="closeModal('detailModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
-    </div>
-    <div class="modal-body" id="detailModalBody">
-        <div class="text-center text-muted" style="padding:40px;">Loading...</div>
-    </div>
-    <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
-    </div>
-</div>
-
-<!-- Application Detail Modal -->
-<div class="modal modal-lg" id="applicationModal">
-    <div class="modal-header">
-        <h3 class="modal-title">Application Details</h3>
-        <button class="modal-close" onclick="closeModal('applicationModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
-    </div>
-    <div class="modal-body" id="applicationModalBody">
-        <div class="text-center text-muted" style="padding:40px;">Loading...</div>
-    </div>
-    <div class="modal-footer" id="applicationModalFooter">
-        <button class="btn btn-secondary" onclick="closeModal('applicationModal')">Close</button>
-    </div>
-</div>
 
 <script>
     window.CAN_EDIT = <?= $canEdit ? 'true' : 'false' ?>;

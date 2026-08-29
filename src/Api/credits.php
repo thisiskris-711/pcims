@@ -50,9 +50,9 @@ switch ($method) {
             // Get unpaid or partially paid credit invoices
             $stmt = $db->prepare("
                 SELECT s.id as sale_id, s.invoice_no, s.total, s.due_date, s.created_at,
-                       (s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0)) as balance
+                       (CASE WHEN s.payment_method = 'cash&credit' THEN (s.total - s.cash_received) ELSE s.total END - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0)) as balance
                 FROM sales s
-                WHERE s.dealer_id = ? AND s.payment_method = 'credit'
+                WHERE s.dealer_id = ? AND s.payment_method IN ('credit', 'cash&credit') AND s.payment_status != 'paid'
                 HAVING balance > 0
                 ORDER BY s.due_date ASC
             ");
@@ -65,11 +65,11 @@ switch ($method) {
             $stmt = $db->query("
                 SELECT d.id as dealer_id, d.name, 
                        MIN(s.due_date) as oldest_due_date,
-                       SUM(s.total - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0)) as overdue_amount,
+                       SUM((CASE WHEN s.payment_method = 'cash&credit' THEN (s.total - s.cash_received) ELSE s.total END) - COALESCE((SELECT SUM(amount) FROM collections WHERE sale_id = s.id AND status = 'active'), 0)) as overdue_amount,
                        DATEDIFF(CURDATE(), MIN(s.due_date)) as days_overdue
                 FROM dealers d
                 JOIN sales s ON d.id = s.dealer_id
-                WHERE s.payment_method = 'credit' 
+                WHERE s.payment_method IN ('credit', 'cash&credit') AND s.payment_status != 'paid'
                   AND s.due_date < CURDATE()
                 GROUP BY d.id
                 HAVING overdue_amount > 0
@@ -192,8 +192,9 @@ switch ($method) {
                         ]);
                         
                         // Update sales payment_status
+                        // Update sales payment_status
                         $salesCheckStmt = $db->prepare("
-                            SELECT s.total, 
+                            SELECT s.total, s.cash_received, s.payment_method,
                                    (SELECT COALESCE(SUM(c.amount), 0) FROM collections c WHERE c.sale_id = s.id AND c.status = 'active') as total_paid
                             FROM sales s WHERE s.id = ?
                         ");
@@ -201,7 +202,8 @@ switch ($method) {
                         $saleData = $salesCheckStmt->fetch();
                         
                         if ($saleData) {
-                            $newStatus = ($saleData['total_paid'] >= $saleData['total'] - 0.01) ? 'paid' : 'partially_paid';
+                            $targetTotal = ($saleData['payment_method'] === 'cash&credit') ? ($saleData['total'] - $saleData['cash_received']) : $saleData['total'];
+                            $newStatus = ($saleData['total_paid'] >= $targetTotal - 0.01) ? 'paid' : 'pending';
                             $db->prepare("UPDATE sales SET payment_status = ? WHERE id = ?")->execute([$newStatus, $alloc['sale_id']]);
                         }
                     }

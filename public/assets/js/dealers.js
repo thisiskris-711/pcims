@@ -68,21 +68,35 @@ function renderDealers(dealers) {
     }
 
     tbody.innerHTML = dealers.map(d => {
-        const statusColor = d.status === 'active' ? 'var(--success-color)' : (d.status === 'suspended' ? 'var(--warning-color)' : 'var(--text-muted)');
+        let displayStatus = d.status;
+        let statusColor = d.status === 'active' ? 'var(--success-color)' : (d.status === 'suspended' ? 'var(--warning-color)' : 'var(--text-muted)');
+        
         const balance = parseFloat(d.credit_balance);
         const limit = parseFloat(d.credit_limit);
         const utilization = limit > 0 ? (balance / limit) : 0;
         const utilPercent = (utilization * 100).toFixed(1);
         
+        let warningIcon = '';
+        if (d.status === 'active' && utilization > 1.0) {
+            displayStatus = 'Over Limit';
+            statusColor = 'var(--error-color)';
+            warningIcon = `<i data-lucide="alert-triangle" style="width:14px;height:14px;color:var(--error-color);vertical-align:middle;margin-left:4px;" title="Credit Over Limit"></i>`;
+        }
+        
         // Warning treatment for high outstanding
         let creditTextClass = '';
-        if (utilization >= 0.8) creditTextClass = 'color:var(--error-color);font-weight:600;';
+        if (utilization > 1.0) creditTextClass = 'color:var(--error-color);font-weight:700;';
+        else if (utilization >= 0.7) creditTextClass = 'color:var(--warning-color);font-weight:600;';
         else if (balance > 0) creditTextClass = 'font-weight:500;';
         else creditTextClass = 'color:var(--success-color);font-weight:500;';
 
-        const barColor = utilization >= 0.8 ? 'var(--error-color)' : (utilization >= 0.5 ? 'var(--warning-color)' : 'var(--success-color)');
+        const barColor = utilization > 1.0 ? 'var(--error-color)' : (utilization >= 0.7 ? 'var(--warning-color)' : 'var(--success-color)');
 
         let actions = '';
+
+        if (window.CAN_EDIT) {
+            actions += `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openDealerModal(${d.id})" title="Edit Dealer" style="color:var(--primary-color);padding:4px;"><i data-lucide="edit" style="width:16px;height:16px;"></i></button>`;
+        }
 
         if (window.CAN_RECORD_PAYMENT && balance > 0) {
             actions += `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); openPaymentModal(${d.id}, '${escapeHtml(d.name)}', ${d.credit_balance})" title="Account / Credit Transactions" style="color:var(--success-color);padding:4px;"><i data-lucide="banknote" style="width:16px;height:16px;"></i></button>`;
@@ -103,6 +117,7 @@ function renderDealers(dealers) {
                 <div style="font-size:0.95rem; margin-bottom:4px;">
                     <span style="font-weight:700; ${creditTextClass}">${formatCurrency(balance)}</span> 
                     <span style="color:var(--text-muted);font-size:0.85rem;">/ ${formatCurrency(limit)}</span>
+                    ${warningIcon}
                 </div>
                 <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">${utilPercent}% used</div>
                 <div style="background:var(--bg-tertiary);border-radius:2px;height:4px;width:100%;overflow:hidden;">
@@ -110,7 +125,7 @@ function renderDealers(dealers) {
                 </div>
             </td>
             <td style="padding: 12px 16px;">
-                <span class="status-badge" style="color:${statusColor};background:${statusColor}15; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500; display:inline-block; text-transform:capitalize;">${d.status}</span>
+                <span class="status-badge" style="color:${statusColor};background:${statusColor}15; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500; display:inline-block; text-transform:capitalize;">${displayStatus}</span>
             </td>
             <td style="padding: 12px 16px;">
                 <div style="font-weight:700; font-size:1.1rem; line-height:1;">${d.total_sales || 0}</div>
@@ -405,7 +420,8 @@ async function viewDealer(id) {
 
     try {
         const d = await apiRequest(`/api/dealers?action=detail&id=${id}`);
-        document.getElementById('detailModalTitle').textContent = `${d.name} (${d.dealer_code})`;
+        document.getElementById('detailModalTitle').innerHTML = `${escapeHtml(d.name)} (${escapeHtml(d.dealer_code)})` + 
+            (window.CAN_EDIT ? ` <button class="btn btn-sm btn-ghost" onclick="openDealerModal(${d.id})" title="Edit Dealer" style="color:var(--primary-color);padding:2px 6px;margin-left:8px;vertical-align:middle;border:1px solid #e2e8f0;border-radius:4px;"><i data-lucide="edit" style="width:14px;height:14px;"></i> Edit</button>` : '');
 
         const statusColor = d.status === 'active' ? 'var(--success-color)' : (d.status === 'suspended' ? 'var(--warning-color)' : 'var(--text-muted)');
         const balance = parseFloat(d.credit_balance);
@@ -513,17 +529,26 @@ async function viewDealer(id) {
                     <table>
                         <thead><tr><th>Invoice</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th></tr></thead>
                         <tbody>
-                            ${d.recent_sales.map(s => `
+                            ${d.recent_sales.map(s => {
+                                const st = s.payment_status || 'unknown';
+                                const color = st === 'paid' ? 'var(--success-color)' : (st === 'pending' ? 'var(--warning-color)' : 'var(--text-muted)');
+                                return `
                                 <tr>
                                     <td><a href="${window.APP_URL}/invoice_print?id=${s.id}" target="_blank" style="text-decoration:none; color:var(--primary-color);" title="View Invoice"><code style="font-size:0.78rem; cursor:pointer;">${s.invoice_no}</code></a></td>
                                     <td style="font-weight:500;">${formatCurrency(s.total)}</td>
-                                    <td>${s.payment_method}</td>
-                                    <td><span class="status-badge" style="color:${s.payment_status === 'paid' ? 'var(--success-color)' : 'var(--warning-color)'};background:${s.payment_status === 'paid' ? 'var(--success-color)' : 'var(--warning-color)'}15;">${s.payment_status}</span></td>
+                                    <td><span class="badge" style="background:#f1f5f9;color:#475569;font-size:0.75rem;">${s.payment_method}</span></td>
+                                    <td><span class="status-badge" style="color:${color};background:${color}15; display:inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 500;">${st}</span></td>
                                     <td>${new Date(s.created_at).toLocaleDateString()}</td>
                                 </tr>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
+                </div>
+                <div style="text-align:center; margin-top:12px;">
+                    <a href="${window.APP_URL}/sales?dealer_id=${id}" class="btn btn-sm btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;">
+                        View all sales <i data-lucide="arrow-right" style="width:14px;height:14px;margin-left:4px;"></i>
+                    </a>
                 </div>
             `;
         }

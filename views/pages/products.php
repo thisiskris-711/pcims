@@ -39,9 +39,10 @@ include dirname(__DIR__) . '/layouts/header.php';
             <option value="inactive">Inactive</option>
         </select>
         <select class="form-control" id="expiryFilter" style="width:auto;min-width:140px;">
-            <option value="">Expiry Filter</option>
+            <option value="">Special Filters</option>
             <option value="expiring_soon">Expiring Soon (30 days)</option>
             <option value="expired">Expired</option>
+            <option value="incomplete">Needs Setup (Incomplete)</option>
         </select>
     </div>
     <div class="toolbar-right">
@@ -81,12 +82,11 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <thead>
                     <tr>
                         <th style="width:40px;"><input type="checkbox" id="selectAll"></th>
-                        <th style="min-width:250px;">Product</th>
-                        <th>SKU</th>
+                        <th style="min-width:250px;" class="sortable" data-sort="name" style="cursor:pointer; user-select:none;">Product <i data-lucide="chevrons-up-down" style="width:12px;height:12px;color:var(--text-muted);"></i></th>
+                        <th class="sortable" data-sort="sku" style="cursor:pointer; user-select:none;">SKU <i data-lucide="chevrons-up-down" style="width:12px;height:12px;color:var(--text-muted);"></i></th>
                         <th>Category</th>
-                        <th>Cost</th>
-                        <th>Price</th>
-                        <th>Stock</th>
+                        <th class="sortable" data-sort="selling_price" style="cursor:pointer; user-select:none;">Price <i data-lucide="chevrons-up-down" style="width:12px;height:12px;color:var(--text-muted);"></i></th>
+                        <th class="sortable" data-sort="quantity" style="cursor:pointer; user-select:none;">Stock <i data-lucide="chevrons-up-down" style="width:12px;height:12px;color:var(--text-muted);"></i></th>
                         <th>Expiry</th>
                         <th>Status</th>
                         <th>Added By</th>
@@ -96,7 +96,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                     </tr>
                 </thead>
                 <tbody id="productsBody">
-                    <tr><td colspan="11" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted" style="padding:40px;">Loading products...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -117,6 +117,23 @@ include dirname(__DIR__) . '/layouts/header.php';
         <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
         <button class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">
             <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Delete
+        </button>
+    </div>
+</div>
+
+<!-- Bulk Delete Confirmation Modal -->
+<div class="modal" id="bulkDeleteModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Bulk Delete Products</h3>
+        <button class="modal-close" onclick="closeModal('bulkDeleteModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body">
+        <p>Are you sure you want to delete <strong id="bulkDeleteCount"></strong> selected products? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('bulkDeleteModal')">Cancel</button>
+        <button class="btn btn-danger" id="confirmBulkDeleteBtn" onclick="confirmBulkDelete()">
+            <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Delete Selected
         </button>
     </div>
 </div>

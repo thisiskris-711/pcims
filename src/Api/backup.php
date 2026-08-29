@@ -188,6 +188,40 @@ switch ($action) {
         }
         break;
 
+    case 'get_settings':
+        $pdo = getDB();
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('auto_backup_enabled', 'auto_backup_time', 'auto_backup_retention_days', 'last_auto_backup')");
+        $settings = [];
+        while ($row = $stmt->fetch()) {
+            $settings[$row['setting_key']] = $row['setting_value'];
+        }
+        jsonResponse(['success' => true, 'data' => $settings]);
+        break;
+
+    case 'save_settings':
+        verifyCSRFToken();
+        
+        $enabled = isset($_POST['auto_backup_enabled']) && $_POST['auto_backup_enabled'] === '1' ? '1' : '0';
+        $time = $_POST['auto_backup_time'] ?? '02:00';
+        $retention = (int)($_POST['auto_backup_retention_days'] ?? 7);
+        
+        if (!preg_match('/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/', $time)) {
+            $time = '02:00'; // fallback
+        }
+        if ($retention < 1 || $retention > 365) {
+            $retention = 7;
+        }
+
+        $pdo = getDB();
+        $stmt = $pdo->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = ?");
+        $stmt->execute([$enabled, 'auto_backup_enabled']);
+        $stmt->execute([$time, 'auto_backup_time']);
+        $stmt->execute([$retention, 'auto_backup_retention_days']);
+        
+        logAudit('auto_backup_settings_updated', null, null, null);
+        jsonResponse(['success' => true, 'message' => 'Auto-backup settings saved successfully']);
+        break;
+
     default:
         jsonResponse(['error' => 'Invalid action'], 400);
         break;

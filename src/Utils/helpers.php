@@ -187,6 +187,38 @@ function handleImageUpload(array $file, string $directory = ''): ?string {
 }
 
 /**
+ * Handle 3D model upload
+ */
+function handle3DModelUpload(array $file, string $directory = ''): ?string {
+    $uploadDir = UPLOAD_DIR . ($directory ? $directory . '/' : '');
+    
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowedExts = ['glb', 'gltf'];
+    $maxSize = 20 * 1024 * 1024; // 20MB
+    
+    if (!in_array($ext, $allowedExts)) {
+        return null;
+    }
+    
+    if ($file['size'] > $maxSize) {
+        return null;
+    }
+    
+    $filename = uniqid('model_', true) . '.' . $ext;
+    $filepath = $uploadDir . $filename;
+    
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        return ($directory ? $directory . '/' : '') . $filename;
+    }
+    
+    return null;
+}
+
+/**
  * Delete an uploaded file
  */
 function deleteUploadedFile(?string $filename): bool {

@@ -5,12 +5,12 @@
 USE `inventory_ms`;
 
 -- -----------------------------------------------------
--- Default Admin User (password: admin123)
+-- Default Admin User (password: Admin!2026Secure)
 -- -----------------------------------------------------
-INSERT INTO `users` (`username`, `email`, `password_hash`, `full_name`, `role`, `status`) VALUES
-('admin', 'admin@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'System Administrator', 'admin', 'active'),
-('manager', 'manager@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'Store Manager', 'manager', 'active'),
-('cashier', 'cashier@inventory.local', '$2y$12$EQMB.HpV.mxXawhfnY..2.fS5HaPk27s4eMlWSOO6U6VRoGu0b8c6', 'Store Cashier', 'cashier', 'active');
+INSERT INTO `users` (`username`, `email`, `password_hash`, `force_password_reset`, `full_name`, `role`, `status`) VALUES
+('admin', 'admin@inventory.local', '$2y$12$eN8RG2WnIIQKfJdiS39QDeYmA2QSAdr8aHfKwWwQAGu/d6ZZBeBxu', 1, 'System Administrator', 'admin', 'active'),
+('manager', 'manager@inventory.local', '$2y$12$eN8RG2WnIIQKfJdiS39QDeYmA2QSAdr8aHfKwWwQAGu/d6ZZBeBxu', 1, 'Store Manager', 'manager', 'active'),
+('cashier', 'cashier@inventory.local', '$2y$12$eN8RG2WnIIQKfJdiS39QDeYmA2QSAdr8aHfKwWwQAGu/d6ZZBeBxu', 1, 'Store Cashier', 'cashier', 'active');
 
 -- NOTE: The hash above is a bcrypt hash of "password". We'll generate proper hashes via PHP on first run.
 -- For seeding, we'll use a known hash.

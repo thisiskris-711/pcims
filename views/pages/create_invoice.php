@@ -174,11 +174,19 @@ include dirname(__DIR__) . '/layouts/header.php';
             <div style="text-align: right; min-width: 300px;">
                 <h1 style="color:var(--text-muted); font-size: 2.2rem; margin:0 0 15px 0; text-transform:uppercase; letter-spacing: 2px; opacity:0.5;">Invoice</h1>
                 <div style="display:flex; gap:10px; align-items:center; justify-content:flex-end; margin-bottom:8px;">
-                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 60px;">Date:</span>
-                    <input type="date" id="invoiceDate" name="invoiceDate" class="form-control" style="width:180px; padding:6px 10px; font-size:0.9rem;" value="<?= date('Y-m-d') ?>" readonly>
+                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 80px;">Invoice No:</span>
+                    <input type="text" id="invoiceNo" name="invoiceNo" class="form-control" style="width:180px; padding:6px 10px; font-size:0.9rem; background: var(--bg-tertiary); font-weight:bold;" readonly>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; justify-content:flex-end; margin-bottom:8px;">
+                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 80px;">Date:</span>
+                    <input type="date" id="invoiceDate" name="invoiceDate" class="form-control" style="width:180px; padding:6px 10px; font-size:0.9rem;" value="<?= date('Y-m-d') ?>">
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; justify-content:flex-end; margin-bottom:8px;" id="dueDateWrapper">
+                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 80px;">Due Date:</span>
+                    <input type="date" id="dueDate" name="dueDate" class="form-control" style="width:180px; padding:6px 10px; font-size:0.9rem;" value="<?= date('Y-m-d', strtotime('+30 days')) ?>">
                 </div>
                 <div style="display:flex; gap:10px; align-items:center; justify-content:flex-end;">
-                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 60px;">Method:</span>
+                    <span style="color:var(--text-muted);font-size:0.9rem; font-weight: 500; width: 80px;">Method:</span>
                     <select class="form-control" id="paymentMethod" onchange="onPaymentMethodChange()" style="width:180px; padding:6px 10px; font-size:0.9rem;">
                         <option value="cash">Cash</option>
                         <option value="credit">Credit</option>
@@ -249,6 +257,11 @@ include dirname(__DIR__) . '/layouts/header.php';
                     <span>Dealer Discount (25%)</span>
                     <span id="invoiceModalDiscount" style="color:var(--danger-color); font-weight:500;">-₱0.00</span>
                     <input type="hidden" id="orderDiscount" value="0.00">
+                </div>
+                <div style="display:flex; justify-content:space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 1rem;">
+                    <span>VAT (12%)</span>
+                    <span id="invoiceModalTax" style="font-weight:500;">₱0.00</span>
+                    <input type="hidden" id="orderTax" value="0.00">
                 </div>
                 <div style="display:flex; justify-content:space-between; padding-top: 20px; font-size: 1.5rem; font-weight: bold; color: var(--primary-color);">
                     <span>Total</span>

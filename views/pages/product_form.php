@@ -38,11 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $lowStockThreshold = (int)($_POST['low_stock_threshold'] ?? 10);
     $barcode = trim($_POST['barcode'] ?? '');
     $status = $_POST['status'] ?? 'active';
+
     $type = $_POST['type'] ?? 'standard';
     $expiryDate = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] : null;
 
     if (empty($name)) {
         flashMessage('Product name is required.', 'error');
+    } elseif (preg_match('/(.)\1{4,}/', $name) || preg_match('/(.)\1{4,}/', $description)) {
+        flashMessage('Product name or description contains invalid repeating characters.', 'error');
     } else {
         // Handle image
         $image = $product['image'] ?? null;
@@ -55,12 +58,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $image = handleImageUpload($_FILES['image']);
         }
 
+        // Handle 3D model
+        $model3d = $product['model_3d'] ?? null;
+        if (isset($_POST['remove_model']) && $_POST['remove_model'] === '1') {
+            if ($model3d) deleteUploadedFile($model3d);
+            $model3d = null;
+        } elseif (!empty($_FILES['model_3d']) && $_FILES['model_3d']['error'] === UPLOAD_ERR_OK) {
+            // Delete old model
+            if ($model3d) deleteUploadedFile($model3d);
+            $model3d = handle3DModelUpload($_FILES['model_3d'], 'models');
+        }
+
         if ($isEdit) {
             $stmt = $db->prepare("
                 UPDATE products SET name=?, description=?, category_id=?, cost_price=?, selling_price=?, 
-                low_stock_threshold=?, image=?, barcode=?, expiry_date=?, status=?, type=?, updated_at=NOW() WHERE id=?
+                low_stock_threshold=?, image=?, model_3d=?, barcode=?, expiry_date=?, status=?, type=?, updated_at=NOW() WHERE id=?
             ");
-            $stmt->execute([$name, $description, $categoryId, $costPrice, $sellingPrice, $lowStockThreshold, $image, $barcode, $expiryDate, $status, $type, $product['id']]);
+            $stmt->execute([$name, $description, $categoryId, $costPrice, $sellingPrice, $lowStockThreshold, $image, $model3d, $barcode, $expiryDate, $status, $type, $product['id']]);
 
             $db->prepare("DELETE FROM product_bundle_items WHERE bundle_id = ?")->execute([$product['id']]);
             if ($type === 'bundle' && !empty($_POST['bundle_product_id'])) {
@@ -74,6 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             flashMessage('Product updated successfully!');
+            $redirectId = $product['id'];
         } else {
             $prefix = 'GN';
             if ($categoryId) {
@@ -85,10 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sku = generateSKU($prefix);
 
             $stmt = $db->prepare("
-                INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, barcode, expiry_date, status, type, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO products (sku, name, description, category_id, cost_price, selling_price, quantity, low_stock_threshold, image, model_3d, barcode, expiry_date, status, type, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $type === 'bundle' ? 0 : $quantity, $lowStockThreshold, $image, $barcode, $expiryDate, $status, $type, getCurrentUserId()]);
+            $stmt->execute([$sku, $name, $description, $categoryId, $costPrice, $sellingPrice, $type === 'bundle' ? 0 : $quantity, $lowStockThreshold, $image, $model3d, $barcode, $expiryDate, $status, $type, getCurrentUserId()]);
 
             $newId = $db->lastInsertId();
 
@@ -110,9 +125,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             flashMessage('Product created successfully!');
+            $redirectId = $newId;
         }
 
-        redirect(APP_URL . '/products');
+        redirect(APP_URL . '/product_details?id=' . $redirectId);
     }
 }
 
@@ -120,6 +136,18 @@ $pageTitle = $isEdit ? 'Edit Product' : 'Add Product';
 $currentPage = 'products';
 include dirname(__DIR__) . '/layouts/header.php';
 ?>
+
+<!-- Import model-viewer -->
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+
+<style>
+    model-viewer {
+        width: 100%;
+        height: 200px;
+        background-color: var(--bg-body);
+        border-radius: 8px;
+    }
+</style>
 
 <div style="max-width:800px;">
     <div class="card">
@@ -131,26 +159,21 @@ include dirname(__DIR__) . '/layouts/header.php';
         </div>
         <div class="card-body">
             <form method="POST" enctype="multipart/form-data" id="productForm">
+                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                <input type="hidden" name="id" id="productId" value="<?= $isEdit ? $product['id'] : '' ?>">
                 <div class="form-group">
                     <label class="form-label" for="name">Product Name *</label>
-                    <input type="text" class="form-control" id="name" name="name" required
-                        value="<?= sanitize($product['name'] ?? '') ?>" placeholder="Enter product name">
+                    <input type="text" class="form-control" id="name" name="name" required autocomplete="off"
+                        value="<?= sanitize($product['name'] ?? '') ?>" placeholder="Enter product name"
+                        oninput="this.style.borderColor = this.value.trim() ? '' : 'var(--accent-rose)'">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="description">Description</label>
-                    <textarea class="form-control" id="description" name="description" rows="3" placeholder="Product description"><?= sanitize($product['description'] ?? '') ?></textarea>
+                    <textarea class="form-control" id="description" name="description" rows="5" placeholder="Product description" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"><?= sanitize($product['description'] ?? '') ?></textarea>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" for="type">Product Type</label>
-                        <select class="form-control" id="type" name="type" onchange="toggleBundleFields()">
-                            <option value="standard" <?= ($product['type'] ?? 'standard') === 'standard' ? 'selected' : '' ?>>Standard Product</option>
-                            <option value="bundle" <?= ($product['type'] ?? '') === 'bundle' ? 'selected' : '' ?>>Product Bundle</option>
-                        </select>
-                    </div>
-                </div>
+
 
                 <div class="form-row">
                     <div class="form-group">
@@ -166,21 +189,23 @@ include dirname(__DIR__) . '/layouts/header.php';
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="barcode">Barcode</label>
-                        <input type="text" class="form-control" id="barcode" name="barcode"
-                            value="<?= sanitize($product['barcode'] ?? '') ?>" placeholder="Optional barcode">
+                        <div class="d-flex gap-1">
+                            <input type="text" class="form-control" id="barcode" name="barcode"
+                                value="<?= sanitize($product['barcode'] ?? '') ?>" placeholder="Optional barcode" style="flex: 1;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('barcode').value = Math.floor(100000000000 + Math.random() * 900000000000).toString()" title="Generate Random Barcode">
+                                <i data-lucide="barcode" style="width:18px;height:18px;"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label" for="cost_price">Cost Price (₱)</label>
-                        <input type="number" class="form-control" id="cost_price" name="cost_price" step="0.01" min="0"
-                            value="<?= $product['cost_price'] ?? '0.00' ?>" placeholder="0.00">
-                    </div>
-                    <div class="form-group">
                         <label class="form-label" for="selling_price">Selling Price (₱)</label>
                         <input type="number" class="form-control" id="selling_price" name="selling_price" step="0.01" min="0"
-                            value="<?= $product['selling_price'] ?? '0.00' ?>" placeholder="0.00">
+                            value="<?= $product['selling_price'] ?? '' ?>" placeholder="0.00"
+                            oninput="validateNonNegativeNumber(this, 'selling_price_error', 'Selling price')">
+                        <div id="selling_price_error" class="text-danger" style="display: none; font-size: 0.85rem; margin-top: 4px;">Selling price cannot be negative.</div>
                     </div>
                 </div>
 
@@ -190,19 +215,25 @@ include dirname(__DIR__) . '/layouts/header.php';
                             <div class="form-group">
                                 <label class="form-label" for="quantity">Initial Quantity</label>
                                 <input type="number" class="form-control" id="quantity" name="quantity" min="0"
-                                    value="0" placeholder="0">
+                                    value="" placeholder="0"
+                                    oninput="validateNonNegativeNumber(this, 'quantity_error', 'Initial quantity')">
+                                <div id="quantity_error" class="text-danger" style="display: none; font-size: 0.85rem; margin-top: 4px;">Initial quantity cannot be negative.</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="low_stock_threshold">Low Stock Threshold</label>
                                 <input type="number" class="form-control" id="low_stock_threshold" name="low_stock_threshold" min="0"
-                                    value="<?= $product['low_stock_threshold'] ?? '10' ?>" placeholder="10">
+                                    value="<?= $product['low_stock_threshold'] ?? '' ?>" placeholder="10"
+                                    oninput="validateNonNegativeNumber(this, 'low_stock_error', 'Low stock threshold')">
+                                <div id="low_stock_error" class="text-danger" style="display: none; font-size: 0.85rem; margin-top: 4px;">Low stock threshold cannot be negative.</div>
                             </div>
                         </div>
                     <?php else: ?>
                         <div class="form-group">
                             <label class="form-label" for="low_stock_threshold">Low Stock Threshold</label>
                             <input type="number" class="form-control" id="low_stock_threshold" name="low_stock_threshold" min="0"
-                                value="<?= $product['low_stock_threshold'] ?? '10' ?>" placeholder="10">
+                                value="<?= $product['low_stock_threshold'] ?? '' ?>" placeholder="10"
+                                oninput="validateNonNegativeNumber(this, 'low_stock_error', 'Low stock threshold')">
+                            <div id="low_stock_error" class="text-danger" style="display: none; font-size: 0.85rem; margin-top: 4px;">Low stock threshold cannot be negative.</div>
                             <div class="form-hint">Current stock: <strong><?= $product['quantity'] ?></strong> — Adjust stock via Stock Movement page.</div>
                         </div>
                     <?php endif; ?>
@@ -214,7 +245,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                         <?php foreach ($bundleItems as $idx => $bItem): ?>
                             <div class="d-flex bundle-item-row" style="margin-bottom: 10px; align-items: flex-end; gap: 16px;">
                                 <div class="form-group" style="flex: 3; margin-bottom: 0;">
-                                    <label class="form-label">Product</label>
+                                    <div class="form-label">Product</div>
                                     <select class="form-control" name="bundle_product_id[]" required>
                                         <option value="">Select a product</option>
                                         <?php foreach ($allProducts as $ap): ?>
@@ -223,7 +254,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                                     </select>
                                 </div>
                                 <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                                    <label class="form-label" for="bundle_quantity[]">Quantity</label>
+                                    <div class="form-label">Quantity</div>
                                     <input type="number" class="form-control" name="bundle_quantity[]" min="1" value="<?= $bItem['quantity'] ?>" placeholder="Qty" required>
                                 </div>
                                 <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="this.closest('.bundle-item-row').remove()" style="height: 42px; padding: 0 12px;">
@@ -242,7 +273,11 @@ include dirname(__DIR__) . '/layouts/header.php';
                     <div class="form-group">
                         <label class="form-label" for="expiry_date">Expiry Date</label>
                         <input type="date" class="form-control" id="expiry_date" name="expiry_date"
-                            value="<?= sanitize($product['expiry_date'] ?? '') ?>">
+                            min="<?= date('Y-m-d', strtotime('-10 years')) ?>" 
+                            max="<?= date('Y-m-d', strtotime('+20 years')) ?>"
+                            value="<?= sanitize($product['expiry_date'] ?? '') ?>"
+                            oninput="validateExpiryDate(this)">
+                        <div id="expiry_date_error" class="text-danger" style="display: none; font-size: 0.85rem; margin-top: 4px;">Please enter a valid expiry date.</div>
                         <div class="form-hint">Leave blank if not applicable.</div>
                     </div>
                 </div>
@@ -256,7 +291,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Product Image</label>
+                        <label class="form-label" for="imageInput">Product Image</label>
                         <input type="hidden" name="remove_image" id="removeImageFlag" value="0">
                         <div style="position: relative; display: inline-block; width: 100%;">
                             <div class="image-upload <?= !empty($product['image']) ? 'has-image' : '' ?>" id="imageUploadContainer" onclick="document.getElementById('imageInput').click()">
@@ -285,6 +320,43 @@ include dirname(__DIR__) . '/layouts/header.php';
                     </div>
                 </div>
 
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-header" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggle3DSection()">
+                        <h3 class="card-title">3D Model (Optional)</h3>
+                        <i id="icon-3d-toggle" data-lucide="chevron-down" style="width:20px;height:20px;"></i>
+                    </div>
+                    <div class="card-body" id="section-3d-content" style="display: <?= !empty($product['model_3d']) ? 'block' : 'none' ?>;">
+                        <div class="form-group" style="position: relative;">
+                            <input type="hidden" name="remove_model" id="removeModelFlag" value="0">
+                            <div style="position: relative; display: inline-block; width: 100%;">
+                                <div class="image-upload <?= !empty($product['model_3d']) ? 'has-image' : '' ?>" id="modelUploadContainer" style="height: 220px;" onclick="if(event.target.tagName !== 'MODEL-VIEWER') document.getElementById('modelInput').click()">
+                                    <?php if (!empty($product['model_3d'])): ?>
+                                        <model-viewer src="<?= UPLOAD_URL . sanitize($product['model_3d']) ?>" id="modelPreview" auto-rotate camera-controls shadow-intensity="1" style="width: 100%; height: 100%;"></model-viewer>
+                                        <div class="image-upload-text" id="uploadModelText" style="display:none;">
+                                            <i data-lucide="box" style="width:32px;height:32px;"></i>
+                                            Click to upload 3D Model
+                                        </div>
+                                    <?php else: ?>
+                                        <model-viewer id="modelPreview" style="display:none; width: 100%; height: 100%;" auto-rotate camera-controls shadow-intensity="1"></model-viewer>
+                                        <div class="image-upload-text" id="uploadModelText">
+                                            <i data-lucide="box" style="width:32px;height:32px;"></i>
+                                            Click to upload 3D Model (.glb / .gltf)
+                                        </div>
+                                    <?php endif; ?>
+                                    <input type="file" id="modelInput" name="model_3d" accept=".glb,.gltf"
+                                        onchange="handleModelSelect(this)">
+                                </div>
+                                <button type="button" id="removeModelBtn" class="btn btn-sm btn-danger"
+                                    style="position: absolute; top: 10px; right: 10px; padding: 4px; display: <?= !empty($product['model_3d']) ? 'block' : 'none' ?>; z-index: 10;"
+                                    onclick="clearModel(event)" title="Remove 3D Model">
+                                    <i data-lucide="x" style="width:14px;height:14px;"></i>
+                                </button>
+                            </div>
+                            <div class="form-hint mt-2">Use Khronos <code>.glb</code> or <code>.gltf</code> format up to 20MB.</div>
+                        </div>
+                    </div>
+                </div>
+
                 <?php if ($isEdit): ?>
                     <div class="form-hint mb-2">
                         SKU: <code style="color:var(--accent-cyan);"><?= sanitize($product['sku']) ?></code>
@@ -295,7 +367,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 <div class="d-flex gap-1" style="margin-top:24px;">
                     <button type="submit" class="btn btn-primary">
                         <i data-lucide="<?= $isEdit ? 'save' : 'plus' ?>" style="width:18px;height:18px;"></i>
-                        <?= $isEdit ? 'Save Changes' : 'Create Product' ?>
+                        <?= $isEdit ? 'Save Changes' : 'Add Product' ?>
                     </button>
                     <a href="<?= APP_URL ?>/products" class="btn btn-secondary">Cancel</a>
                 </div>
@@ -313,6 +385,21 @@ include dirname(__DIR__) . '/layouts/header.php';
         document.getElementById('bundleFields').style.display = type === 'bundle' ? 'block' : 'none';
     }
 
+    function toggle3DSection() {
+        const section = document.getElementById('section-3d-content');
+        const icon = document.getElementById('icon-3d-toggle');
+        const isHidden = section.style.display === 'none';
+        section.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+            icon.setAttribute('data-lucide', 'chevron-up');
+        } else {
+            icon.setAttribute('data-lucide', 'chevron-down');
+        }
+        lucide.createIcons({
+            root: icon.parentElement
+        });
+    }
+
     function addBundleItem() {
         const container = document.getElementById('bundleItemsContainer');
         const row = document.createElement('div');
@@ -322,7 +409,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         row.style.gap = '16px';
         row.innerHTML = `
             <div class="form-group" style="flex: 3; margin-bottom: 0;">
-                <label class="form-label">Product</label>
+                <div class="form-label">Product</div>
                 <select class="form-control" name="bundle_product_id[]" required>
                     <option value="">Select a product</option>
                     <?php foreach ($allProducts as $ap): ?>
@@ -331,7 +418,7 @@ include dirname(__DIR__) . '/layouts/header.php';
                 </select>
             </div>
             <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                <label class="form-label">Quantity</label>
+                <div class="form-label">Quantity</div>
                 <input type="number" class="form-control" name="bundle_quantity[]" min="1" value="1" placeholder="Qty" required>
             </div>
             <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="this.closest('.bundle-item-row').remove()" style="height: 42px; padding: 0 12px;">
@@ -342,7 +429,7 @@ include dirname(__DIR__) . '/layouts/header.php';
         if (typeof lucide !== 'undefined') lucide.createIcons({
             root: row
         });
-        
+
         row.querySelectorAll('input[type="number"]').forEach(input => {
             input.addEventListener('wheel', (e) => e.preventDefault());
         });
@@ -375,7 +462,106 @@ include dirname(__DIR__) . '/layouts/header.php';
         document.getElementById('removeImageFlag').value = '1';
     }
 
+    function handleModelSelect(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const url = URL.createObjectURL(file);
+
+            const preview = document.getElementById('modelPreview');
+            preview.src = url;
+            preview.style.display = 'block';
+
+            const uploadText = document.getElementById('uploadModelText');
+            if (uploadText) uploadText.style.display = 'none';
+
+            const container = document.getElementById('modelUploadContainer');
+            if (container) container.classList.add('has-image');
+
+            document.getElementById('removeModelBtn').style.display = 'block';
+            document.getElementById('removeModelFlag').value = '0';
+        }
+    }
+
+    function clearModel(event) {
+        event.stopPropagation();
+        const fileInput = document.getElementById('modelInput');
+        fileInput.value = '';
+
+        const preview = document.getElementById('modelPreview');
+        preview.src = '';
+        preview.style.display = 'none';
+
+        const uploadText = document.getElementById('uploadModelText');
+        if (uploadText) uploadText.style.display = 'flex';
+
+        const container = document.getElementById('modelUploadContainer');
+        if (container) container.classList.remove('has-image');
+
+        document.getElementById('removeModelBtn').style.display = 'none';
+        document.getElementById('removeModelFlag').value = '1';
+    }
+
+    function validateNonNegativeNumber(input, errorElementId, fieldName) {
+        const errorDiv = document.getElementById(errorElementId);
+        let isInvalid = false;
+        
+        if (input.value !== "" && Number(input.value) < 0) {
+            isInvalid = true;
+        } else if (input.validity && (input.validity.badInput || input.validity.rangeUnderflow)) {
+            isInvalid = true;
+        }
+
+        if (isInvalid) {
+            input.setCustomValidity(`${fieldName} cannot be negative.`);
+            input.style.borderColor = 'var(--accent-rose)';
+            if (errorDiv) {
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = `${fieldName} cannot be negative.`;
+            }
+        } else {
+            input.setCustomValidity("");
+            input.style.borderColor = '';
+            if (errorDiv) errorDiv.style.display = 'none';
+        }
+    }
+
+    function validateExpiryDate(input) {
+        const errorDiv = document.getElementById('expiry_date_error');
+        let isInvalid = false;
+        
+        if (input.validity && (input.validity.badInput || input.validity.rangeUnderflow || input.validity.rangeOverflow)) {
+            isInvalid = true;
+        }
+
+        if (isInvalid) {
+            input.setCustomValidity("Please enter a valid expiry date.");
+            input.style.borderColor = 'var(--accent-rose)';
+            if (errorDiv) errorDiv.style.display = 'block';
+        } else {
+            input.setCustomValidity("");
+            input.style.borderColor = '';
+            if (errorDiv) errorDiv.style.display = 'none';
+        }
+    }
+
     document.querySelectorAll('input[type="number"]').forEach(input => {
         input.addEventListener('wheel', (e) => e.preventDefault());
+    });
+
+    document.getElementById('productForm').addEventListener('submit', function(e) {
+        const nameInput = document.getElementById('name');
+        if (!nameInput.value.trim()) {
+            nameInput.style.borderColor = 'var(--accent-rose)';
+            e.preventDefault();
+            return;
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const desc = document.getElementById('description');
+        if (desc && desc.value) {
+            desc.style.height = '';
+            desc.style.height = desc.scrollHeight + 'px';
+        }
     });
 </script>

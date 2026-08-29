@@ -137,6 +137,48 @@ include dirname(__DIR__) . '/layouts/header.php';
     font-size: 0.9rem;
     color: var(--text-secondary);
 }
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.toggle-switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border-color);
+    transition: .4s;
+    border-radius: 24px;
+}
+.toggle-switch .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.toggle-switch input:checked + .slider {
+    background-color: var(--accent-primary);
+}
+.toggle-switch input:checked + .slider:before {
+    transform: translateX(20px);
+}
+.disabled-section {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
 </style>
 
 <div class="toolbar">
@@ -144,7 +186,10 @@ include dirname(__DIR__) . '/layouts/header.php';
         <h2 style="font-size:1.25rem;font-weight:600;color:var(--text-primary);">Manage Database Backups</h2>
         <p class="text-muted" style="margin-top: 4px; font-size: 0.9rem;">Safely create, download, and restore system data snapshots.</p>
     </div>
-    <div class="toolbar-right">
+    <div class="toolbar-right" style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="openSettingsModal()">
+            <i data-lucide="settings" style="width:18px;height:18px;"></i> Auto-Backup Settings
+        </button>
         <button class="btn btn-primary" onclick="createBackup()" id="btnCreateBackup">
             <i data-lucide="database-backup" style="width:18px;height:18px;"></i> Create Backup Now
         </button>
@@ -226,21 +271,13 @@ include dirname(__DIR__) . '/layouts/header.php';
         <button class="modal-close" onclick="closeModal('restoreModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
     </div>
     <div class="modal-body">
-        <div class="modal-alert-box">
-            <div class="modal-alert-title">
-                WARNING: Destructive Action
-            </div>
-            <div class="modal-alert-text">
-                This will replace the current database with the selected backup. Any changes made after this backup may be lost.
+        <div class="modal-alert-box" style="margin-bottom: 20px;">
+            <div class="modal-alert-text" style="color: var(--text-primary); font-size: 0.95rem;">
+                This will replace the current database with the selected backup. A safety backup will be created automatically before restoring.
             </div>
         </div>
-        <p style="color: var(--text-primary); margin-bottom: 8px;">Are you absolutely sure you want to restore the database from:</p>
-        <p style="background: var(--bg-tertiary); padding: 8px 12px; border-radius: 4px; font-family: monospace; color: var(--text-secondary); border: 1px solid var(--border-color); margin-bottom: 16px;"><strong id="restoreFilename"></strong></p>
-        
-        <p class="text-muted" style="font-size: 0.85rem; display: flex; align-items: flex-start; gap: 8px;">
-            <i data-lucide="shield-check" style="width:16px;height:16px;flex-shrink:0;color:var(--accent-emerald);margin-top:2px;"></i>
-            A safety backup of the current state will be created automatically before the restoration begins.
-        </p>
+        <p style="color: var(--text-secondary); margin-bottom: 8px; font-size: 0.9rem;">Selected backup file:</p>
+        <p style="background: var(--bg-tertiary); padding: 8px 12px; border-radius: 4px; font-family: monospace; color: var(--text-primary); border: 1px solid var(--border-color); margin-bottom: 8px;"><strong id="restoreFilename"></strong></p>
     </div>
     <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('restoreModal')">Cancel</button>
@@ -264,6 +301,51 @@ include dirname(__DIR__) . '/layouts/header.php';
         <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
         <button class="btn" style="background-color: var(--accent-rose); color: white;" onclick="executeDelete()" id="btnExecuteDelete">
             <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Delete Backup
+        </button>
+    </div>
+<!-- Auto-Backup Settings Modal -->
+<div class="modal" id="settingsModal">
+    <div class="modal-header">
+        <h3 class="modal-title">Auto-Backup Settings</h3>
+        <button class="modal-close" onclick="closeModal('settingsModal')"><i data-lucide="x" style="width:20px;height:20px;"></i></button>
+    </div>
+    <div class="modal-body">
+        <form id="settingsForm">
+            <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 24px; background: var(--bg-card); display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <h4 style="margin: 0; font-size: 1rem; color: var(--text-primary);">Daily Auto-Backup</h4>
+                    <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.85rem;">Automatically create a database backup once every day.</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="auto_backup_enabled" name="auto_backup_enabled" value="1" onchange="toggleAutoBackupSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <div id="autoBackupOptions">
+                <h4 style="font-size: 0.9rem; color: var(--text-primary); margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Schedule</h4>
+                <div class="form-group" style="margin-bottom: 24px;">
+                    <label for="auto_backup_time" style="font-weight: 500;">Time of Day</label>
+                    <input type="time" class="form-control" id="auto_backup_time" name="auto_backup_time" required>
+                    <div class="text-muted" style="font-size: 0.8rem; margin-top: 4px;">Runs once daily within 1 hour of the selected time.</div>
+                </div>
+
+                <h4 style="font-size: 0.9rem; color: var(--text-primary); margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Retention</h4>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="auto_backup_retention_days" style="font-weight: 500;">Keep backups for</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="number" class="form-control" id="auto_backup_retention_days" name="auto_backup_retention_days" min="1" max="365" style="width: 100px;" required>
+                        <span style="color: var(--text-primary); font-size: 0.9rem;">days</span>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.8rem; margin-top: 4px;">Backups older than this period will be automatically deleted.</div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()" id="btnSaveSettings">
+            Save Settings
         </button>
     </div>
 </div>
@@ -531,6 +613,79 @@ function executeDelete() {
         btn.innerHTML = originalText;
         btn.disabled = false;
         currentDeleteFile = '';
+        lucide.createIcons();
+    });
+}
+
+function toggleAutoBackupSettings() {
+    const isEnabled = document.getElementById('auto_backup_enabled').checked;
+    const optionsDiv = document.getElementById('autoBackupOptions');
+    const inputs = optionsDiv.querySelectorAll('input');
+    
+    if (isEnabled) {
+        optionsDiv.classList.remove('disabled-section');
+        inputs.forEach(input => input.disabled = false);
+    } else {
+        optionsDiv.classList.add('disabled-section');
+        inputs.forEach(input => input.disabled = true);
+    }
+}
+
+function openSettingsModal() {
+    fetch(`${APP_URL}/api/backup?action=get_settings`)
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                document.getElementById('auto_backup_enabled').checked = res.data.auto_backup_enabled === '1';
+                document.getElementById('auto_backup_time').value = res.data.auto_backup_time || '02:00';
+                document.getElementById('auto_backup_retention_days').value = res.data.auto_backup_retention_days || 7;
+                toggleAutoBackupSettings();
+                openModal('settingsModal');
+            } else {
+                showToast('Failed to load settings', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('Network error occurred', 'error');
+        });
+}
+
+function saveSettings() {
+    const btn = document.getElementById('btnSaveSettings');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:16px;height:16px;"></i> Saving...`;
+    btn.disabled = true;
+    lucide.createIcons();
+    
+    const formData = new FormData(document.getElementById('settingsForm'));
+    // Handle unchecked checkbox
+    if (!formData.has('auto_backup_enabled')) {
+        formData.append('auto_backup_enabled', '0');
+    }
+    formData.append('action', 'save_settings');
+    formData.append('csrf_token', window.CSRF_TOKEN);
+    
+    fetch(`${APP_URL}/api/backup`, {
+        method: 'POST',
+        body: new URLSearchParams(formData)
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) {
+            showToast(res.message, 'success');
+            closeModal('settingsModal');
+        } else {
+            showToast(res.error || 'Failed to save settings', 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast('Network error occurred', 'error');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
         lucide.createIcons();
     });
 }

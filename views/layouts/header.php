@@ -38,16 +38,31 @@ $flash = getFlashMessage();
     <link rel="apple-touch-icon" href="<?= APP_URL ?>/assets/icon-192x192.png">
     <meta name="theme-color" content="#4f46e5">
 
-    <!-- Dark Mode FOUC Prevention -->
+    <!-- Dark Mode FOUC Prevention & Auth Setup -->
     <script>
+        window.APP_URL = '<?= APP_URL ?>';
+        window.CSRF_TOKEN = '<?= generateCSRFToken() ?>';
+        
         (function() {
+            <?php 
+            $dbTheme = 'null';
+            if (!empty($user['preferences'])) {
+                $prefs = json_decode($user['preferences'], true);
+                if (isset($prefs['theme'])) {
+                    $dbTheme = "'" . sanitize($prefs['theme']) . "'";
+                }
+            }
+            ?>
+            const dbTheme = <?= $dbTheme ?>;
+            if (dbTheme) {
+                localStorage.setItem('theme', dbTheme);
+            }
             const savedTheme = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
             }
         })();
-        window.APP_URL = '<?= APP_URL ?>';
     </script>
 
     <!-- Service Worker Registration -->
@@ -171,13 +186,17 @@ $flash = getFlashMessage();
                         <i data-lucide="database-backup" style="width:20px;height:20px;"></i>
                         <span>Backup & Restore</span>
                     </a>
+                    <a href="<?= APP_URL ?>/settings" class="nav-link <?= $currentPage === 'settings' ? 'active' : '' ?>">
+                        <i data-lucide="settings" style="width:20px;height:20px;"></i>
+                        <span>System Settings</span>
+                    </a>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
         </nav>
 
         <div class="sidebar-footer">
-            <a href="<?= APP_URL ?>/profile" class="sidebar-user <?= $currentPage === 'profile' ? 'active' : '' ?>" style="text-decoration: none; display: flex; align-items: center; padding: 10px; border-radius: 8px; transition: all 0.2s ease; <?= $currentPage === 'profile' ? 'background-color: rgba(154, 0, 2, 0.08); border: 1px solid rgba(154, 0, 2, 0.2);' : '' ?>">
+            <a href="<?= APP_URL ?>/profile" class="sidebar-user" style="text-decoration: none; display: flex; align-items: center; padding: 10px; border-radius: 8px; transition: all 0.2s ease;">
                 <div class="user-avatar">
                     <?= strtoupper(substr($user['full_name'] ?? 'U', 0, 1)) ?>
                 </div>

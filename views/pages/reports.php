@@ -10,6 +10,16 @@ $currentPage = 'reports';
 include dirname(__DIR__) . '/layouts/header.php';
 ?>
 
+<style>
+    /* Increase contrast of alternating row stripes for easier scanning */
+    .table-wrapper table tbody tr:nth-child(even) {
+        background-color: #f4f6f8;
+    }
+    .table-wrapper table tbody tr:hover {
+        background-color: #eef2f6;
+    }
+</style>
+
 <!-- Report Tabs -->
 <div class="tabs" id="reportTabs">
     <button class="tab-btn active" data-tab="salesReport" onclick="switchReportTab(this, 'sales')">
@@ -52,6 +62,20 @@ include dirname(__DIR__) . '/layouts/header.php';
     </div>
 </div>
 
+<!-- Forecast Info -->
+<div id="forecastInfo" style="display:none; margin-bottom: 16px;">
+    <p style="color:var(--text-muted); font-size:0.95rem; margin:0 0 12px;">Forecasts future demand from historical sales to flag stockout and overstock risks.</p>
+    <details style="background:var(--bg-tertiary); padding: 12px 16px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+        <summary style="font-weight:600; cursor:pointer; color:var(--text-secondary);">What do these stats mean?</summary>
+        <ul style="margin: 8px 0 0 20px; padding:0; color:var(--text-muted); line-height:1.6;">
+            <li><strong>High Risk Stockouts:</strong> Products projected to run out of stock within the supplier lead time.</li>
+            <li><strong>Recommended Reorder Value:</strong> Total cost required to restock all high/critical risk items to safe levels.</li>
+            <li><strong>Products Growing:</strong> Items where recent 7-day demand is at least 15% higher than their 30-day average.</li>
+            <li><strong>Overstock Risks:</strong> Products with over 90 days of inventory supply based on current sales velocity.</li>
+        </ul>
+    </details>
+</div>
+
 <!-- Summary Cards -->
 <div class="stats-grid mb-3" id="reportSummary" style="display:none;"></div>
 
@@ -83,6 +107,25 @@ include dirname(__DIR__) . '/layouts/header.php';
 <script>
 let currentReport = 'sales';
 let reportPage = 1;
+let salesSortCol = 'created_at';
+let salesSortDir = 'desc';
+
+function toggleSalesSort(col) {
+    if (salesSortCol === col) {
+        salesSortDir = salesSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        salesSortCol = col;
+        salesSortDir = col === 'total' || col === 'discount' ? 'desc' : 'asc';
+    }
+    loadReport();
+}
+
+function sortIcon(col) {
+    if (salesSortCol !== col) return '<i data-lucide="chevrons-up-down" style="width:14px;height:14px;display:inline-block;vertical-align:middle;opacity:0.3;margin-left:4px;"></i>';
+    return salesSortDir === 'asc' 
+        ? '<i data-lucide="chevron-up" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-left:4px;"></i>' 
+        : '<i data-lucide="chevron-down" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-left:4px;"></i>';
+}
 
 function switchReportTab(btn, type) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -99,8 +142,10 @@ function switchReportTab(btn, type) {
     
     if (type === 'forecast') {
         document.getElementById('forecastChartContainer').style.display = 'block';
+        if (document.getElementById('forecastInfo')) document.getElementById('forecastInfo').style.display = 'block';
     } else {
         document.getElementById('forecastChartContainer').style.display = 'none';
+        if (document.getElementById('forecastInfo')) document.getElementById('forecastInfo').style.display = 'none';
     }
     
     // Clear
@@ -124,6 +169,11 @@ async function loadReport() {
         date_to: dateTo,
         page: reportPage
     });
+    
+    if (currentReport === 'sales') {
+        params.append('sort', salesSortCol);
+        params.append('dir', salesSortDir);
+    }
     
     try {
         const data = await apiRequest(`/api/reports?${params}`);
@@ -204,7 +254,34 @@ function renderForecastChart(chartData) {
                 y: { beginAtZero: true },
                 x: { grid: { display: false } }
             }
-        }
+        },
+        plugins: [{
+            id: 'todayLine',
+            beforeDraw: chart => {
+                const ctx = chart.ctx;
+                const xAxis = chart.scales.x;
+                const yAxis = chart.scales.y;
+                
+                // Index 29 is 'Today' (30 days of history from index 0 to 29)
+                const x = xAxis.getPixelForTick(29);
+                if (!x) return;
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, yAxis.top);
+                ctx.lineTo(x, yAxis.bottom);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#94a3b8';
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#64748b';
+                ctx.textAlign = 'center';
+                ctx.font = '10px sans-serif';
+                ctx.fillText('Today', x, yAxis.top - 5);
+                ctx.restore();
+            }
+        }]
     });
 }
 
@@ -222,10 +299,10 @@ function renderReport(data) {
         switch (currentReport) {
             case 'sales':
                 summaryEl.innerHTML = `
-                    <div class="stat-card violet"><div class="stat-value">${s.count}</div><div class="stat-label">Total Orders</div></div>
-                    <div class="stat-card emerald"><div class="stat-value">${formatCurrency(s.revenue)}</div><div class="stat-label">Total Revenue</div></div>
-                    <div class="stat-card amber"><div class="stat-value">${formatCurrency(s.discounts)}</div><div class="stat-label">Total Discounts</div></div>
-                    <div class="stat-card cyan"><div class="stat-value">${formatCurrency(s.taxes)}</div><div class="stat-label">Total Tax</div></div>
+                    <div class="stat-card violet"><div class="stat-value">${s.count}</div><div class="stat-label">Total Orders</div><div class="stat-subtitle" style="font-size:0.75rem;opacity:0.8;margin-top:4px;">Count of all invoices</div></div>
+                    <div class="stat-card emerald"><div class="stat-value">${formatCurrency(s.revenue)}</div><div class="stat-label">Total Revenue</div><div class="stat-subtitle" style="font-size:0.75rem;opacity:0.8;margin-top:4px;">Sum of totals (incl. tax, after disc)</div></div>
+                    <div class="stat-card amber"><div class="stat-value">${formatCurrency(s.discounts)}</div><div class="stat-label">Total Discounts</div><div class="stat-subtitle" style="font-size:0.75rem;opacity:0.8;margin-top:4px;">Total of Promo and Dealer discounts</div></div>
+                    <div class="stat-card cyan"><div class="stat-value">${formatCurrency(s.taxes)}</div><div class="stat-label">Total Tax</div><div class="stat-subtitle" style="font-size:0.75rem;opacity:0.8;margin-top:4px;">12% VAT included in total revenue</div></div>
                 `;
                 break;
             case 'inventory':
@@ -275,19 +352,53 @@ function renderReport(data) {
     // Table headers and rows based on report type
     switch (currentReport) {
         case 'sales':
-            thead.innerHTML = '<tr><th>Invoice</th><th>Customer</th><th>Items</th><th>Subtotal</th><th>Discount</th><th>Tax</th><th>Total</th><th>Payment</th><th>Date</th></tr>';
-            tbody.innerHTML = rows.map(r => `
+            thead.innerHTML = `<tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Subtotal</th>
+                <th style="cursor:pointer;" onclick="toggleSalesSort('discount')" title="Sort by Discount">Discount ${sortIcon('discount')}</th>
+                <th>Tax</th>
+                <th style="cursor:pointer;" onclick="toggleSalesSort('total')" title="Sort by Total">Total ${sortIcon('total')}</th>
+                <th>Payment</th>
+                <th style="cursor:pointer;" onclick="toggleSalesSort('created_at')" title="Sort by Date">Date ${sortIcon('created_at')}</th>
+            </tr>`;
+            tbody.innerHTML = rows.map(r => {
+                let customerEl = escapeHtml(r.customer_name);
+                if (r.dealer_id) {
+                    customerEl = `<a href="${APP_URL}/dealers" style="color:var(--primary-color);font-weight:600;text-decoration:underline;" title="View in Dealers">${customerEl}</a>`;
+                }
+
+                let badgeColor = 'badge-blue';
+                if (r.payment_method === 'cash') badgeColor = 'badge-emerald';
+                else if (r.payment_method === 'credit') badgeColor = 'badge-amber';
+                else if (r.payment_method === 'cash&credit') badgeColor = 'badge-blue';
+
+                let discPct = '';
+                if (r.discount > 0 && r.subtotal > 0) {
+                    discPct = ` <span style="font-size:0.8rem;opacity:0.8;">(${((r.discount / r.subtotal) * 100).toFixed(1)}%)</span>`;
+                }
+                
+                let discSource = '';
+                if (r.notes && r.discount > 0) {
+                    if (r.notes.includes('Promo Savings')) discSource += ' <span class="badge" style="background:#e2e8f0;color:#475569;font-size:0.7rem;padding:2px 6px;margin-left:4px;">Promo</span>';
+                    if (r.notes.includes('Dealer Discount')) discSource += ' <span class="badge" style="background:#e2e8f0;color:#475569;font-size:0.7rem;padding:2px 6px;margin-left:4px;">Dealer</span>';
+                }
+
+                return `
                 <tr>
                     <td><code style="color:var(--accent-cyan);">${r.invoice_no}</code></td>
-                    <td>${escapeHtml(r.customer_name)}</td>
+                    <td>${customerEl}</td>
                     <td>${r.item_count}</td>
                     <td>${formatCurrency(r.subtotal)}</td>
-                    <td class="text-muted">${formatCurrency(r.discount)}</td>
+                    <td class="text-muted" style="white-space:nowrap;">${formatCurrency(r.discount)}${discPct}${discSource}</td>
                     <td class="text-muted">${formatCurrency(r.tax)}</td>
                     <td class="font-bold text-success">${formatCurrency(r.total)}</td>
-                    <td><span class="badge badge-blue">${r.payment_method}</span></td>
+                    <td><span class="badge ${badgeColor}">${r.payment_method}</span></td>
                     <td class="text-muted">${new Date(r.created_at).toLocaleDateString()}</td>
-                </tr>`).join('');
+                </tr>`;
+            }).join('');
+            if (window.lucide) setTimeout(() => lucide.createIcons(), 0);
             break;
             
         case 'inventory':
@@ -339,7 +450,7 @@ function renderReport(data) {
             break;
             
         case 'forecast':
-            thead.innerHTML = '<tr><th>SKU / Product</th><th>Risk Level</th><th>Forecast Demand (30d)</th><th>Confidence</th><th>Suggested Reorder</th><th>Action</th></tr>';
+            thead.innerHTML = '<tr><th>SKU / Product</th><th>Risk Level <i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;cursor:help;margin-left:4px;" title="Risk of stockout based on projected demand vs current stock."></i></th><th>Forecast Demand (30d)</th><th>Confidence <i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;cursor:help;margin-left:4px;" title="Accuracy level based on historical sales consistency."></i></th><th>Suggested Reorder</th><th>Action</th></tr>';
             tbody.innerHTML = rows.map(r => {
                 let riskBadge = '';
                 if (r.risk_level === 'Critical') riskBadge = '<span class="badge badge-rose">Critical</span>';
@@ -354,7 +465,11 @@ function renderReport(data) {
                 
                 let actionBtn = r.suggested_reorder > 0 ? 
                     `<button class="btn btn-sm btn-primary" onclick="createDraftPO('${r.sku}', ${r.suggested_reorder})" title="Create Draft PO"><i data-lucide="shopping-cart" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Draft PO</button>` : 
-                    '<span class="text-muted" style="font-size:0.85rem;">No reorder required</span>';
+                    '<span class="text-muted" style="font-size:0.85rem;"></span>';
+                    
+                let suggestedReorderHtml = r.suggested_reorder > 0 ? 
+                    `<div class="font-bold text-violet" style="font-size:1.1rem;">${r.suggested_reorder}</div>` : 
+                    `<div class="text-muted" style="font-size:0.9rem;font-weight:500;">No action needed</div>`;
                 
                 return `
                 <tr>
@@ -366,7 +481,7 @@ function renderReport(data) {
                     <td class="font-bold">${r.forecast_demand} units</td>
                     <td>${confBadge}</td>
                     <td>
-                        <div class="font-bold text-violet" style="font-size:1.1rem;">${r.suggested_reorder > 0 ? r.suggested_reorder : '—'}</div>
+                        ${suggestedReorderHtml}
                         <div style="font-size:0.75rem;color:var(--text-muted);max-width:200px;line-height:1.2;margin-top:4px;">${r.reasoning}</div>
                     </td>
                     <td style="vertical-align:middle;">${actionBtn}</td>
@@ -398,7 +513,7 @@ function renderReport(data) {
             break;
     }
     
-    if (['low_stock', 'forecast'].includes(currentReport) && typeof renderPagination === 'function') {
+    if (['low_stock', 'forecast', 'sales'].includes(currentReport) && typeof renderPagination === 'function') {
         renderPagination(document.getElementById('reportsPagination'), data.page, data.total_pages, reportsGoPage);
     } else {
         document.getElementById('reportsPagination').innerHTML = '';

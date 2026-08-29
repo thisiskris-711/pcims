@@ -23,6 +23,7 @@ switch ($method) {
         break;
         
     case 'POST':
+        verifyCSRFToken();
         $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
         $name = trim($input['name'] ?? '');
@@ -44,6 +45,7 @@ switch ($method) {
         break;
         
     case 'PUT':
+        verifyCSRFToken();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Category ID required'], 400);
         
@@ -70,6 +72,7 @@ switch ($method) {
         break;
         
     case 'DELETE':
+        verifyCSRFToken();
         $id = (int)($_GET['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'Category ID required'], 400);
         

@@ -10,6 +10,7 @@ $user = $db->prepare("SELECT * FROM users WHERE id = ?")->fetch();
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCSRFToken();
     $action = $_POST['action'] ?? '';
     
     if ($action === 'update_profile') {
@@ -41,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (!password_verify($currentPassword, $userData['password_hash'])) {
             flashMessage('Current password is incorrect.', 'error');
-        } elseif (strlen($newPassword) < 6) {
-            flashMessage('New password must be at least 6 characters.', 'error');
+        } elseif (strlen($newPassword) < 8 || !preg_match('/[0-9\W]/', $newPassword)) {
+            flashMessage('New password must be at least 8 characters and contain at least one number or symbol.', 'error');
         } elseif ($newPassword !== $confirmPassword) {
             flashMessage('New passwords do not match.', 'error');
         } else {
@@ -59,6 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->execute([getCurrentUserId()]);
 $user = $stmt->fetch();
+
+$preferences = json_decode($user['preferences'] ?? '{}', true) ?: [];
+$theme = $preferences['theme'] ?? 'light';
+$notifySales = $preferences['notify_email_sales'] ?? false;
+$notifyInventory = $preferences['notify_email_inventory'] ?? false;
 
 $pageTitle = 'Profile';
 $currentPage = 'profile';
@@ -110,7 +116,7 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
     <div class="profile-content-wrapper" style="flex: 1; max-width: 800px;">
         <!-- Update Profile -->
         <div class="card mb-4 profile-card" style="box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 12px; overflow: hidden; margin-bottom: 32px;">
-            <div class="card-header border-bottom" style="padding: 24px; background: #fff;">
+            <div class="card-header border-bottom" style="padding: 24px;">
                 <div>
                     <h3 class="card-title" style="font-weight: 600; font-size: 1.25rem; display: flex; align-items: center; color: var(--text-color);">
                         <i data-lucide="user" style="width:20px;height:20px;margin-right:10px; color: var(--accent-primary);"></i> Edit Profile
@@ -119,8 +125,9 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
                 </div>
             </div>
             <div class="card-body" style="padding: 24px;">
-                <form method="POST" id="profileForm">
+                <form method="POST" action="">
                     <input type="hidden" name="action" value="update_profile">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                     
                     <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <div class="form-group mb-0">
@@ -137,11 +144,11 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
                     <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
                         <div class="form-group mb-0">
                             <label class="form-label" for="username" style="font-weight: 500; margin-bottom: 8px;">Username</label>
-                            <input type="text" id="username" class="form-control" value="<?= sanitize($user['username'] ?? '') ?>" autocomplete="username" disabled style="height: 48px; border-radius: 8px; font-size: 1rem; background-color: #f8fafc; color: #64748b; cursor: not-allowed; width: 100%; box-sizing: border-box; display: block;">
+                            <input type="text" id="username" class="form-control" value="<?= sanitize($user['username'] ?? '') ?>" autocomplete="username" disabled style="height: 48px; border-radius: 8px; font-size: 1rem; cursor: not-allowed; width: 100%; box-sizing: border-box; display: block; opacity: 0.7;">
                         </div>
                         <div class="form-group mb-0">
                             <label class="form-label" for="role" style="font-weight: 500; margin-bottom: 8px;">Role</label>
-                            <input type="text" id="role" class="form-control" value="<?= ucfirst($user['role'] ?? '') ?>" disabled style="height: 48px; border-radius: 8px; font-size: 1rem; background-color: #f8fafc; color: #64748b; cursor: not-allowed; width: 100%; box-sizing: border-box; display: block;">
+                            <input type="text" id="role" class="form-control" value="<?= ucfirst($user['role'] ?? '') ?>" disabled style="height: 48px; border-radius: 8px; font-size: 1rem; cursor: not-allowed; width: 100%; box-sizing: border-box; display: block; opacity: 0.7;">
                         </div>
                     </div>
 
@@ -156,7 +163,7 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
         
         <!-- Change Password -->
         <div class="card profile-card" style="box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 12px; overflow: hidden;">
-            <div class="card-header border-bottom" style="padding: 24px; background: #fff;">
+            <div class="card-header border-bottom" style="padding: 24px;">
                 <div>
                     <h3 class="card-title" style="font-weight: 600; font-size: 1.25rem; display: flex; align-items: center; color: var(--text-color);">
                         <i data-lucide="shield" style="width:20px;height:20px;margin-right:10px; color: var(--accent-primary);"></i> Security
@@ -165,8 +172,10 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
                 </div>
             </div>
             <div class="card-body" style="padding: 24px;">
-                <form method="POST" id="passwordForm">
+                <form method="POST" action="" id="passwordForm">
                     <input type="hidden" name="action" value="change_password">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label class="form-label" for="current_password" style="font-weight: 500; margin-bottom: 8px;">Current Password</label>
                         <div style="position: relative;">
@@ -180,17 +189,17 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
                         <div class="form-group mb-0">
                             <label class="form-label" for="new_password" style="font-weight: 500; margin-bottom: 8px;">New Password</label>
                             <div style="position: relative;">
-                                <input type="password" id="new_password" class="form-control" name="new_password" autocomplete="new-password" required minlength="6" placeholder="New password" style="height: 48px; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; display: block; padding-right: 40px;">
+                                <input type="password" id="new_password" class="form-control" name="new_password" autocomplete="new-password" required minlength="8" placeholder="New password" style="height: 48px; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; display: block; padding-right: 40px;">
                                 <button type="button" class="toggle-password" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; padding: 0; display: flex;" tabindex="-1">
                                     <i data-lucide="eye" style="width:20px;height:20px;"></i>
                                 </button>
                             </div>
-                            <small class="text-muted" style="display: block; margin-top: 6px; font-size: 0.8rem;">Requirement: Minimum 6 characters.</small>
+                            <small class="text-muted" style="display: block; margin-top: 6px; font-size: 0.8rem;">Requirement: Minimum 8 characters, at least 1 number/symbol.</small>
                         </div>
                         <div class="form-group mb-0">
                             <label class="form-label" for="confirm_password" style="font-weight: 500; margin-bottom: 8px;">Confirm New Password</label>
                             <div style="position: relative;">
-                                <input type="password" id="confirm_password" class="form-control" name="confirm_password" autocomplete="new-password" required minlength="6" placeholder="Repeat new password" style="height: 48px; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; display: block; padding-right: 40px;">
+                                <input type="password" id="confirm_password" class="form-control" name="confirm_password" autocomplete="new-password" required minlength="8" placeholder="Repeat new password" style="height: 48px; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; display: block; padding-right: 40px;">
                                 <button type="button" class="toggle-password" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; padding: 0; display: flex;" tabindex="-1">
                                     <i data-lucide="eye" style="width:20px;height:20px;"></i>
                                 </button>
@@ -201,6 +210,49 @@ if (!empty($user['created_at']) && $user['created_at'] !== '0000-00-00 00:00:00'
                     <div class="form-actions" style="text-align: right; border-top: 1px solid var(--border-color); padding-top: 20px;">
                         <button type="submit" class="btn btn-secondary" id="savePasswordBtn" disabled style="height: 44px; padding: 0 24px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; opacity: 0.5; cursor: not-allowed;">
                             Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Preferences -->
+        <div class="card profile-card" style="box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); border-radius: 12px; overflow: hidden; margin-top: 32px;">
+            <div class="card-header border-bottom" style="padding: 24px;">
+                <div>
+                    <h3 class="card-title" style="font-weight: 600; font-size: 1.25rem; display: flex; align-items: center; color: var(--text-color);">
+                        <i data-lucide="sliders" style="width:20px;height:20px;margin-right:10px; color: var(--accent-primary);"></i> Preferences
+                    </h3>
+                    <p class="text-muted" style="margin-top:6px; font-size:0.9rem; margin-bottom: 0;">Customize your interface and notification settings.</p>
+                </div>
+            </div>
+            <div class="card-body" style="padding: 24px;">
+                <form id="preferencesForm">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label class="form-label" for="pref_theme" style="font-weight: 500; margin-bottom: 8px;">Theme Preference</label>
+                        <select id="pref_theme" name="theme" class="form-control" style="height: 48px; border-radius: 8px; font-size: 1rem; width: 100%; box-sizing: border-box; display: block;">
+                            <option value="light" <?= $theme === 'light' ? 'selected' : '' ?>>Light Mode</option>
+                            <option value="dark" <?= $theme === 'dark' ? 'selected' : '' ?>>Dark Mode</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 24px;">
+                        <span class="form-label" style="font-weight: 500; margin-bottom: 8px; display: block;">Email Notifications</span>
+                        
+                        <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;">
+                            <input type="checkbox" name="notify_email_sales" value="1" <?= $notifySales ? 'checked' : '' ?>>
+                            Notify me on new sales and invoices
+                        </label>
+                        
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="notify_email_inventory" value="1" <?= $notifyInventory ? 'checked' : '' ?>>
+                            Notify me on low inventory alerts
+                        </label>
+                    </div>
+
+                    <div class="form-actions" style="text-align: right; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                        <button type="submit" class="btn btn-primary" id="savePrefsBtn" style="height: 44px; padding: 0 24px; font-weight: 500; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
+                            Save Preferences
                         </button>
                     </div>
                 </form>
@@ -280,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const pwBtn = document.getElementById('savePasswordBtn');
 
         function validatePassword() {
-            const hasValues = currentPw.value.length > 0 && newPw.value.length >= 6 && confirmPw.value.length >= 6;
+            const hasValues = currentPw.value.length > 0 && newPw.value.length >= 8 && confirmPw.value.length >= 8 && /[0-9\W]/.test(newPw.value);
             const passwordsMatch = newPw.value === confirmPw.value;
             
             if (confirmPw.value && !passwordsMatch) {
@@ -314,6 +366,70 @@ document.addEventListener('DOMContentLoaded', function() {
                 style.id = 'spinnerKeyframes';
                 style.innerHTML = '@keyframes spin { 100% { transform: rotate(360deg); } }';
                 document.head.appendChild(style);
+            }
+        });
+    }
+
+    // Preferences Form
+    const prefForm = document.getElementById('preferencesForm');
+    if (prefForm) {
+        prefForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('savePrefsBtn');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:#fff;border-bottom-color:transparent;margin-right:8px;display:inline-block;animation:spin 1s linear infinite;"></span> Saving...';
+            
+            try {
+                const formData = new FormData(prefForm);
+                const data = {
+                    theme: formData.get('theme'),
+                    notify_email_sales: formData.get('notify_email_sales') === '1',
+                    notify_email_inventory: formData.get('notify_email_inventory') === '1'
+                };
+                
+                const res = await fetch(`${window.APP_URL}/api/account`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error || 'Failed to update preferences');
+                
+                // Sync theme immediately
+                localStorage.setItem('theme', data.theme);
+                const themeBtn = document.getElementById('themeToggleBtn');
+                if (data.theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    if (themeBtn) {
+                        themeBtn.innerHTML = '<i data-lucide="sun" style="width:20px;height:20px;" id="themeToggleIcon"></i>';
+                    }
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    if (themeBtn) {
+                        themeBtn.innerHTML = '<i data-lucide="moon" style="width:20px;height:20px;" id="themeToggleIcon"></i>';
+                    }
+                }
+                if (typeof lucide !== 'undefined' && themeBtn) {
+                    lucide.createIcons({ root: themeBtn });
+                }
+                
+                if (typeof showToast === 'function') {
+                    showToast('Preferences updated successfully', 'success');
+                } else {
+                    alert('Preferences updated successfully');
+                }
+            } catch (error) {
+                if (typeof showToast === 'function') {
+                    showToast(error.message, 'error');
+                } else {
+                    alert(error.message);
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
         });
     }

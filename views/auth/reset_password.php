@@ -21,7 +21,9 @@ if (!$rateStatus['allowed']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($lockout_remaining > 0) {
+    if (!validateCSRFToken($_POST['csrf_token'] ?? null)) {
+        $error = "Invalid or expired session. Please try again.";
+    } else if ($lockout_remaining > 0) {
         // Error handled by lockout UI
     } else if (!$limiter->check($ip, 'reset_password', 5, 300)) {
         $rateStatus = $limiter->getStatus($ip, 'reset_password', 5, 300);
@@ -35,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please fill in all fields.';
         } elseif ($password !== $confirmPassword) {
             $error = 'Passwords do not match.';
-        } elseif (strlen($password) < 8) {
-            $error = 'Password must be at least 8 characters.';
+        } elseif (strlen($password) < 8 || !preg_match('/[0-9\W]/', $password)) {
+            $error = 'Password must be at least 8 characters and contain at least one number or symbol.';
         } else {
             $email = $_SESSION['reset_email'] ?? null;
             if (!$email) {
@@ -138,7 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php else: ?>
                     <form method="POST" class="login-form" id="resetForm">
-                        <div class="form-group form-floating">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    <div class="form-group form-floating" style="position: relative;">
                             <input type="text" class="form-control" id="pin" name="pin" 
                                    placeholder="6-Digit PIN" required minlength="6" maxlength="6" pattern="\d{6}" 
                                    title="Please enter exactly 6 digits" autofocus 

@@ -40,13 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Theme Toggle Logic
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const themeToggleIcon = document.getElementById('themeToggleIcon');
     
     if (themeToggleBtn) {
         // Set initial icon based on current theme
         const currentTheme = document.documentElement.getAttribute('data-theme');
         if (currentTheme === 'dark') {
-            themeToggleIcon.setAttribute('data-lucide', 'sun');
+            themeToggleBtn.innerHTML = '<i data-lucide="sun" style="width:20px;height:20px;" id="themeToggleIcon"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons({ root: themeToggleBtn });
         }
         
         themeToggleBtn.addEventListener('click', () => {
@@ -55,17 +55,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isDark) {
                 document.documentElement.removeAttribute('data-theme');
                 localStorage.setItem('theme', 'light');
-                themeToggleIcon.setAttribute('data-lucide', 'moon');
+                themeToggleBtn.innerHTML = '<i data-lucide="moon" style="width:20px;height:20px;" id="themeToggleIcon"></i>';
             } else {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 localStorage.setItem('theme', 'dark');
-                themeToggleIcon.setAttribute('data-lucide', 'sun');
+                themeToggleBtn.innerHTML = '<i data-lucide="sun" style="width:20px;height:20px;" id="themeToggleIcon"></i>';
+            }
+            
+            // Send async update to DB
+            if (window.CSRF_TOKEN) {
+                fetch(`${window.APP_URL}/api/account`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        theme: isDark ? 'light' : 'dark',
+                        csrf_token: window.CSRF_TOKEN
+                    })
+                }).catch(e => console.error('Failed to sync theme to DB:', e));
             }
             
             // Re-render lucide icon for the button
-            lucide.createIcons({
-                root: themeToggleBtn
-            });
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons({ root: themeToggleBtn });
+            }
         });
     }
 });

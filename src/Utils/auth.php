@@ -20,6 +20,10 @@ function attemptLogin(string $username, string $password): array {
         return ['success' => false, 'message' => 'Please verify your email address before logging in.', 'unverified' => true, 'username' => $username];
     }
     
+    if (!empty($user['force_password_reset'])) {
+        return ['success' => false, 'message' => 'You must reset your password to continue.', 'force_reset' => true, 'username' => $username];
+    }
+    
     // Set session
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];

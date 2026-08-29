@@ -47,15 +47,27 @@ switch ($method) {
         }
 
         // List
+        $search = $_GET['search'] ?? '';
         $dateFrom = $_GET['date_from'] ?? '';
         $dateTo = $_GET['date_to'] ?? '';
         $paymentMethod = $_GET['payment_method'] ?? '';
+        $status = $_GET['status'] ?? '';
+        $dealerId = (int)($_GET['dealer_id'] ?? 0);
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = (int)($_GET['per_page'] ?? ITEMS_PER_PAGE);
 
         $where = "1=1";
         $params = [];
 
+        if ($search) {
+            $where .= " AND (s.invoice_no LIKE ? OR d.name LIKE ?)";
+            $params[] = "%$search%";
+            $params[] = "%$search%";
+        }
+        if ($status) {
+            $where .= " AND s.payment_status = ?";
+            $params[] = $status;
+        }
         if ($dateFrom) {
             $where .= " AND DATE(s.created_at) >= ?";
             $params[] = $dateFrom;
@@ -67,6 +79,10 @@ switch ($method) {
         if ($paymentMethod) {
             $where .= " AND s.payment_method = ?";
             $params[] = $paymentMethod;
+        }
+        if ($dealerId) {
+            $where .= " AND s.dealer_id = ?";
+            $params[] = $dealerId;
         }
 
         $countStmt = $db->prepare("SELECT COUNT(*) FROM sales s WHERE $where");
@@ -96,6 +112,7 @@ switch ($method) {
         break;
 
     case 'POST':
+        verifyCSRFToken();
         $action = $_GET['action'] ?? '';
         if ($action === 'approve' || $action === 'reject') {
             requirePermission('approve_sales');
@@ -226,6 +243,8 @@ switch ($method) {
         $paymentMethod = $input['payment_method'] ?? 'cash';
         $cashReceived = (float)($input['cash_received'] ?? 0);
         $notes = trim($input['notes'] ?? '');
+        $dueDate = !empty($input['due_date']) ? $input['due_date'] : null;
+        $invoiceDate = !empty($input['invoice_date']) ? $input['invoice_date'] . ' ' . date('H:i:s') : date('Y-m-d H:i:s');
 
         if (empty($items)) jsonResponse(['error' => 'Cart is empty'], 400);
         if (!$dealerId) jsonResponse(['error' => 'A registered dealer must be selected'], 400);
@@ -392,15 +411,25 @@ switch ($method) {
                 }
             }
 
-            $invoiceNo = generateInvoiceNo();
+            // Initial placeholder to satisfy UNIQUE constraint during insert
+            $tempInvoiceNo = uniqid('TMP_');
             $paymentStatus = 'pending_approval'; // ALWAYS pending approval
 
             $saleStmt = $db->prepare("
-                INSERT INTO sales (invoice_no, dealer_id, subtotal, discount, tax, total, cash_received, payment_method, payment_status, notes, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO sales (invoice_no, dealer_id, subtotal, discount, tax, total, cash_received, payment_method, payment_status, notes, due_date, created_at, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $saleStmt->execute([$invoiceNo, $dealerId, $subtotal, $totalDiscount, $tax, $total, $cashReceived, $paymentMethod, $paymentStatus, $notes, getCurrentUserId()]);
+            $saleStmt->execute([$tempInvoiceNo, $dealerId, $subtotal, $totalDiscount, $tax, $total, $cashReceived, $paymentMethod, $paymentStatus, $notes, $dueDate, $invoiceDate, getCurrentUserId()]);
             $saleId = $db->lastInsertId();
+            
+            // Generate final invoice number using the actual sale ID to prevent race conditions
+            $stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'invoice_prefix'");
+            $prefixRow = $stmt->fetch();
+            $prefix = $prefixRow ? $prefixRow['setting_value'] : 'INV-';
+            if (!str_ends_with($prefix, '-')) $prefix .= '-';
+            
+            $invoiceNo = $prefix . date('Y', strtotime($invoiceDate)) . '-' . str_pad($saleId, 4, '0', STR_PAD_LEFT);
+            $db->prepare("UPDATE sales SET invoice_no = ? WHERE id = ?")->execute([$invoiceNo, $saleId]);
 
             foreach ($validatedItems as $vi) {
                 $db->prepare("INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, discount, total) VALUES (?, ?, ?, ?, ?, ?, ?)")

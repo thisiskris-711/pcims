@@ -3,6 +3,8 @@
  */
 let currentPage = 1;
 let deleteProductId = null;
+let currentSort = 'name';
+let currentDir = 'asc';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
@@ -30,6 +32,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (urlParams.get('filter') === 'low_stock') {
         // Already loads all; could add special filter
     }
+    
+    // Sorting headers
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const sort = th.dataset.sort;
+            if (currentSort === sort) {
+                currentDir = currentDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort = sort;
+                currentDir = 'asc';
+            }
+            
+            // Update icons
+            document.querySelectorAll('th.sortable i').forEach(icon => {
+                icon.setAttribute('data-lucide', 'chevrons-up-down');
+                icon.style.color = 'var(--text-muted)';
+            });
+            const icon = th.querySelector('i');
+            if (icon) {
+                icon.setAttribute('data-lucide', currentDir === 'asc' ? 'chevron-up' : 'chevron-down');
+                icon.style.color = 'var(--text-color)';
+                lucide.createIcons({ nodes: [th] });
+            }
+            
+            currentPage = 1;
+            loadProducts();
+        });
+    });
 });
 
 async function loadProducts() {
@@ -39,7 +69,7 @@ async function loadProducts() {
     const expiryFilter = document.getElementById('expiryFilter')?.value || '';
     
     const params = new URLSearchParams({
-        search, category, status, page: currentPage,
+        search, category, status, page: currentPage, sort: currentSort, dir: currentDir
     });
     
     // Check for low_stock filter
@@ -77,13 +107,24 @@ function renderProducts(response) {
     }
     
     tbody.innerHTML = products.map(p => {
-        const stockPercent = p.low_stock_threshold > 0 ? Math.min(100, (p.quantity / (p.low_stock_threshold * 3)) * 100) : 100;
-        const stockLevel = p.quantity <= p.low_stock_threshold ? 'low' : (stockPercent < 50 ? 'medium' : 'high');
+        let stockPercent = 100;
+        let stockLevel = 'high';
+        
+        if (p.quantity <= 0) {
+            stockPercent = 0;
+            stockLevel = 'low';
+        } else if (p.low_stock_threshold > 0) {
+            stockPercent = Math.min(100, (p.quantity / (p.low_stock_threshold * 3)) * 100);
+            stockLevel = p.quantity <= p.low_stock_threshold ? 'low' : (stockPercent <= 50 ? 'medium' : 'high');
+        }
+        
         const imgHtml = p.image 
             ? `<img src="${APP_URL}/uploads/products/${p.image}" alt="">`
             : `<i data-lucide="image" style="width:18px;height:18px;"></i>`;
             
         const bundleBadge = p.type === 'bundle' ? `<span class="status" style="padding:2px 6px; font-size:0.65rem; background:var(--accent-violet); color:white;">Bundle</span>` : '';
+        const model3dBadge = p.model_3d ? `<span class="status" style="padding:2px 6px; font-size:0.65rem; background:var(--accent-cyan); color:white; display:flex; align-items:center; gap:4px;"><i data-lucide="box" style="width:10px;height:10px;color:white;"></i> 3D</span>` : '';
+        const incompleteBadge = (parseFloat(p.selling_price) === 0 && parseInt(p.quantity) === 0) ? `<span class="status" style="padding:2px 6px; font-size:0.65rem; background:var(--accent-rose); color:white;">Needs Setup</span>` : '';
             
         let expiryHtml = '<span class="text-muted">—</span>';
         if (p.expiry_date) {
@@ -102,14 +143,13 @@ function renderProducts(response) {
         }
         
         return `
-        <tr ${window.CAN_EDIT ? `class="clickable-row" onclick="if(!event.target.closest('.product-checkbox') && !event.target.closest('.btn')) window.location.href='${APP_URL}/product_form?id=${p.id}'"` : ''}>
+        <tr class="clickable-row" onclick="if(!event.target.closest('.product-checkbox') && !event.target.closest('.btn')) window.location.href='${APP_URL}/product_details?id=${p.id}'">
             <td><input type="checkbox" class="product-checkbox" value="${p.id}" onclick="event.stopPropagation()"></td>
             <td>
                 <div class="d-flex align-center gap-1">
-                    <div class="product-thumb">${imgHtml}</div>
+                    <div class="product-thumb" title="${p.description ? escapeHtml(p.description) : ''}">${imgHtml}</div>
                     <div>
-                        <div class="font-bold d-flex align-center gap-1">${escapeHtml(p.name)} ${bundleBadge}</div>
-                        <div class="text-muted" style="font-size:0.75rem;">${p.description ? escapeHtml(p.description).substring(0, 50) + '...' : ''}</div>
+                        <div class="font-bold d-flex align-center gap-1" style="flex-wrap: wrap;">${escapeHtml(p.name)} ${bundleBadge} ${model3dBadge} ${incompleteBadge}</div>
                     </div>
                 </div>
             </td>
@@ -117,7 +157,6 @@ function renderProducts(response) {
             <td>
                 ${p.category_name ? `<span class="d-flex align-center gap-1"><span class="color-dot" style="background:${p.category_color}"></span>${escapeHtml(p.category_name)}</span>` : '<span class="text-muted">—</span>'}
             </td>
-            <td class="text-muted">${formatCurrency(p.cost_price)}</td>
             <td class="font-bold">${formatCurrency(p.selling_price)}</td>
             <td>
                 <div class="stock-indicator">
@@ -164,10 +203,11 @@ async function confirmDelete() {
     try {
         await apiRequest(`/api/products?id=${deleteProductId}`, { method: 'DELETE' });
         showToast('Product deleted successfully', 'success');
-        closeModal('deleteModal');
         loadProducts();
     } catch (e) {
         showToast(e.message || 'Failed to delete product', 'error');
+    } finally {
+        closeModal('deleteModal');
     }
 }
 
@@ -200,12 +240,14 @@ function promptBulkDelete() {
     const selectedIds = getSelectedIds();
     if (selectedIds.length === 0) return;
     
-    if (confirm(`Are you sure you want to delete ${selectedIds.length} selected products? This cannot be undone.`)) {
-        confirmBulkDelete(selectedIds);
-    }
+    document.getElementById('bulkDeleteCount').textContent = selectedIds.length;
+    openModal('bulkDeleteModal');
 }
 
-async function confirmBulkDelete(ids) {
+async function confirmBulkDelete() {
+    const ids = getSelectedIds();
+    if (ids.length === 0) return;
+    
     try {
         const res = await apiRequest('/api/products?action=bulk_delete', { 
             method: 'POST', 
@@ -215,10 +257,13 @@ async function confirmBulkDelete(ids) {
             showToast(res.message, 'success');
             document.getElementById('selectAll').checked = false;
             updateBulkActions();
+            closeModal('bulkDeleteModal');
             loadProducts();
         }
     } catch (e) {
         showToast(e.message || 'Failed to delete products', 'error');
+    } finally {
+        closeModal('bulkDeleteModal');
     }
 }
 

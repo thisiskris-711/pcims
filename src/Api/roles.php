@@ -22,6 +22,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    verifyCSRFToken();
     // Create new role
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -58,6 +59,7 @@ if ($method === 'POST') {
 }
 
 if ($method === 'PUT') {
+    verifyCSRFToken();
     // Update role
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -83,6 +85,7 @@ if ($method === 'PUT') {
 }
 
 if ($method === 'DELETE') {
+    verifyCSRFToken();
     // Delete role
     $data = json_decode(file_get_contents('php://input'), true);
     $id = (int)($data['id'] ?? 0);
