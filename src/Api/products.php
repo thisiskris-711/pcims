@@ -296,6 +296,23 @@ switch ($method) {
                             $sets = floor($cartQty / ($buyQty + $getQty));
                             $remainder = $cartQty % ($buyQty + $getQty);
 
+                            $missingProducts = [];
+                            if ($remainder > 0) {
+                                $missingQty = ($buyQty + $getQty) - $remainder;
+                                $stmt = $db->prepare("SELECT id, name, selling_price, quantity as stock FROM products WHERE id = ?");
+                                $stmt->execute([$pId]);
+                                $prod = $stmt->fetch();
+                                if ($prod) {
+                                    $missingProducts[] = [
+                                        'id' => $pId,
+                                        'name' => $prod['name'],
+                                        'price' => floatval($prod['selling_price']),
+                                        'stock' => intval($prod['stock']),
+                                        'qty' => $missingQty
+                                    ];
+                                }
+                            }
+
                             if ($remainder > 0 && $remainder < $buyQty) {
                                 $promotions[] = [
                                     'id' => $promo['id'],
@@ -303,7 +320,8 @@ switch ($method) {
                                     'label' => "Promo Available",
                                     'description' => "Buy " . ($buyQty - $remainder) . " more to qualify for ₱" . number_format($promoPrice, 2) . " promo.",
                                     'qualified' => false,
-                                    'priority' => $priority
+                                    'priority' => $priority,
+                                    'missing_products' => $missingProducts
                                 ];
                             } elseif ($remainder >= $buyQty) {
                                 $promotions[] = [
@@ -311,8 +329,9 @@ switch ($method) {
                                     'type' => 'category_discount',
                                     'label' => 'Promo Unlocked!',
                                     'description' => "You qualify! Add " . (($buyQty + $getQty) - $remainder) . " more to claim ₱" . number_format($promoPrice, 2) . " promo.",
-                                    'qualified' => true,
-                                    'priority' => $priority
+                                    'qualified' => false,
+                                    'priority' => $priority,
+                                    'missing_products' => $missingProducts
                                 ];
                             } else if ($sets > 0 && $remainder == 0) {
                                 $promotions[] = [
@@ -341,16 +360,20 @@ switch ($method) {
 
             $attachPromoToArr = function (&$arr) use ($activePromos2) {
                 foreach ($arr as &$p) {
+                    $itemId = $p['id'] ?? $p['product_id'] ?? null;
+                    $catId = $p['category_id'] ?? null;
+                    if ($itemId === null) continue;
+
                     foreach ($activePromos2 as $promo) {
                         $config = json_decode($promo['config'], true);
                         if (!$config) continue;
                         $isMatch = false;
-                        if (isset($config['buy_target']) && $config['buy_target'] === 'product_' . $p['id']) $isMatch = true;
-                        if (isset($config['get_target']) && $config['get_target'] === 'product_' . $p['id']) $isMatch = true;
-                        if (isset($config['buy_target']) && isset($p['category_id']) && $config['buy_target'] === 'category_' . $p['category_id']) $isMatch = true;
+                        if (isset($config['buy_target']) && $config['buy_target'] === 'product_' . $itemId) $isMatch = true;
+                        if (isset($config['get_target']) && $config['get_target'] === 'product_' . $itemId) $isMatch = true;
+                        if (isset($config['buy_target']) && $catId !== null && $config['buy_target'] === 'category_' . $catId) $isMatch = true;
                         if ($promo['type'] === 'bundle_deal' && !empty($config['components'])) {
                             foreach ($config['components'] as $comp) {
-                                if (isset($comp['target']) && ($comp['target'] === 'product_' . $p['id'] || (isset($p['category_id']) && $comp['target'] === 'category_' . $p['category_id']))) {
+                                if (isset($comp['target']) && ($comp['target'] === 'product_' . $itemId || ($catId !== null && $comp['target'] === 'category_' . $catId))) {
                                     $isMatch = true;
                                     break;
                                 }

@@ -1,0 +1,89 @@
+# ==============================================================
+# PCIMS Root .htaccess — Production Security
+# ==============================================================
+# This file protects sensitive directories and files when the
+# Apache document root points to the project root instead of
+# public/. Even if the host sets DocumentRoot to public/, these
+# rules provide defense-in-depth.
+# ==============================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # --- Block direct access to sensitive files ---
+    # .env files (credentials)
+    RewriteRule ^\.env$ - [F,L]
+    RewriteRule ^\.env\..+$ - [F,L]
+
+    # Config directory (DB credentials, app secrets)
+    RewriteRule ^config/ - [F,L]
+
+    # Source code (API handlers, utilities)
+    RewriteRule ^src/ - [F,L]
+
+    # Views (server-side templates — must not be served raw)
+    RewriteRule ^views/ - [F,L]
+
+    # Database schemas and migrations
+    RewriteRule ^database/ - [F,L]
+
+    # Composer dependencies
+    RewriteRule ^vendor/ - [F,L]
+
+    # Backup files
+    RewriteRule ^backups/ - [F,L]
+
+    # Scripts directory
+    RewriteRule ^scripts/ - [F,L]
+
+    # Root-level PHP utility/migration scripts
+    RewriteRule ^(setup_db|apply_migration|backfill|inject_perms|inject_views|seed_sales|scratch|test|schema_test|fix_payment_methods|rename_roles_db|migration_3d|update_credit_limit|update_header|test_curl)\.php$ - [F,L]
+
+    # Composer files
+    RewriteRule ^composer\.(json|lock)$ - [F,L]
+
+    # Git directory
+    RewriteRule ^\.git - [F,L]
+
+    # --- Redirect everything else to public/ ---
+    RewriteCond %{REQUEST_URI} !^/pcims/public/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Block access to hidden files (dotfiles) except .htaccess itself
+<FilesMatch "^\.(?!htaccess)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block access to .php files in root (except index.php)
+<FilesMatch "^(?!index\.php$).+\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# Block access to SQL files anywhere
+<FilesMatch "\.sql$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>

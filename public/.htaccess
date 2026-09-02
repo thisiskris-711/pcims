@@ -1,6 +1,63 @@
+# ==============================================================
+# PCIMS Public .htaccess — Security Headers & Routing
+# ==============================================================
+
+# --- HTTPS Redirect (UNCOMMENT FOR PRODUCTION) ---
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# --- Front Controller Routing ---
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
+
+# --- Security Headers ---
+<IfModule mod_headers.c>
+    # Prevent MIME-type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Prevent clickjacking — only allow same-origin framing
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Enable browser XSS filter
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Control referrer information leakage
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Restrict browser features
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+    # Content Security Policy — restrict resource loading
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://ajax.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://ajax.googleapis.com; frame-ancestors 'self';"
+
+    # Enforce HTTPS via HSTS (UNCOMMENT FOR PRODUCTION)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Remove server version disclosure
+    Header always unset X-Powered-By
+    Header unset Server
+</IfModule>
+
+# Hide PHP version
+<IfModule mod_php.c>
+    php_flag expose_php Off
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Block access to hidden files (e.g., .git)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+# Upload directory PHP execution is blocked by public/uploads/.htaccess

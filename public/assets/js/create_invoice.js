@@ -220,7 +220,7 @@ function renderCart() {
                 <div class="cart-item-price">${formatCurrency(item.unit_price)}</div>
                 <div class="cart-item-qty">
                     <button onclick="updateCartQty(${idx}, -1)">−</button>
-                    <input type="number" value="${item.quantity}" min="1" max="${item.max_stock}" onchange="setCartQty(${idx}, this.value)" style="width: 45px; text-align: center; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px; -moz-appearance: textfield;">
+                    <input type="number" id="cart-qty-${idx}" name="cart-qty-${idx}" value="${item.quantity}" min="1" max="${item.max_stock}" onchange="setCartQty(${idx}, this.value)" style="width: 45px; text-align: center; border: 1px solid var(--border-color); border-radius: 4px; padding: 2px; -moz-appearance: textfield;">
                     <button onclick="updateCartQty(${idx}, 1)">+</button>
                 </div>
                 <div class="cart-item-total">${formatCurrency(item.unit_price * item.quantity)}</div>
@@ -752,6 +752,12 @@ function renderRecommendations(data) {
             } else if (promo.product_id) {
                 imageHtml = `<img src="${window.APP_URL}/assets/images/placeholder.jpg" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:8px;border:1px solid var(--border-color);" alt="">`;
             }
+
+            let buttonHtml = '';
+            if (!promo.qualified && promo.missing_products && promo.missing_products.length > 0) {
+                const missingJson = JSON.stringify(promo.missing_products).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                buttonHtml = `<button class="pos-rec-add-btn" style="border-color:var(--accent-primary); color:var(--accent-primary); margin-left: 8px; flex-shrink: 0;" onclick="addBundleMissing(${missingJson})">+ Add Promo</button>`;
+            }
             
             html += `<div class="pos-promo-badge ${qualifiedClass}" style="display:flex;align-items:center;">
                 ${imageHtml}
@@ -762,6 +768,7 @@ function renderRecommendations(data) {
                         ${progressHtml}
                     </div>
                 </div>
+                ${buttonHtml}
             </div>`;
         });
     }

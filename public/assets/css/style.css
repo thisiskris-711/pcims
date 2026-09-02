@@ -2442,12 +2442,36 @@ textarea.form-control {
     }
     
     .pos-layout {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
         height: auto;
+        min-height: calc(100vh - 80px); /* adjust based on topbar */
     }
     
     .pos-cart {
-        max-height: 50vh;
+        position: sticky;
+        bottom: 0;
+        z-index: 90;
+        max-height: 45vh;
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+    }
+
+    .pos-cart-header {
+        padding: 12px 20px;
+    }
+
+    .pos-cart-summary {
+        padding: 10px 20px;
+    }
+
+    .summary-row.total {
+        padding-top: 10px;
+        margin-top: 5px;
+    }
+
+    .pos-cart-actions {
+        padding: 12px 20px 16px;
     }
 }
 
@@ -2519,6 +2543,17 @@ textarea.form-control {
     
     .pos-product-grid {
         grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+    
+    .pos-cart {
+        margin-left: -16px;
+        margin-right: -16px;
+        margin-bottom: -16px;
+        border-radius: 20px 20px 0 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 55vh;
     }
 }
 
@@ -2985,9 +3020,11 @@ textarea.form-control {
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 
 input[type=number] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }

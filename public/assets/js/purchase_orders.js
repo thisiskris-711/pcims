@@ -89,7 +89,7 @@ function renderPOs(pos) {
 
     tbody.innerHTML = pos.map(po => {
         const statusColor = getStatusColor(po.status);
-        const expected = po.expected_date ? formatter.format(new Date(po.expected_date)) : '—';
+        const expected = po.expected_date && po.expected_date !== '0000-00-00' ? formatter.format(new Date(po.expected_date)) : '—';
         const created = formatter.format(new Date(po.created_at));
 
         let actions = '';
@@ -188,7 +188,7 @@ async function viewPO(id) {
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;font-size:0.88rem;">
                 <div><span style="color:var(--text-muted);">Date Created:</span> ${new Date(po.created_at).toLocaleDateString()}</div>
-                <div><span style="color:var(--text-muted);">Expected:</span> ${po.expected_date ? new Date(po.expected_date).toLocaleDateString() : '—'}</div>
+                <div><span style="color:var(--text-muted);">Expected:</span> ${(po.expected_date && po.expected_date !== '0000-00-00') ? new Date(po.expected_date).toLocaleDateString() : '—'}</div>
                 <div><span style="color:var(--text-muted);">Created By:</span> ${escapeHtml(po.created_by_name || '—')}</div>
             </div>
             ${po.notes ? `<div style="margin-top:12px;font-size:0.85rem;color:var(--text-muted);"><strong>Notes:</strong><br>${escapeHtml(po.notes)}</div>` : ''}

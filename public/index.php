@@ -8,6 +8,14 @@ require_once dirname(__DIR__) . '/config/app.php';
 // Get the requested path
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
+// Strip /public from URL if present (Railway deployment compatibility)
+// Handles browsers that cached the old /public/ redirect
+if (strpos($requestUri, '/public') === 0) {
+    $cleanUri = substr($requestUri, strlen('/public')) ?: '/';
+    header("Location: " . $cleanUri, true, 301);
+    exit;
+}
+
 // Remove the APP_URL base from the request URI to get the relative route
 $basePath = parse_url(APP_URL, PHP_URL_PATH);
 if (strpos($requestUri, $basePath) === 0) {
@@ -214,6 +222,10 @@ switch ($route) {
 
     default:
         http_response_code(404);
-        echo "404 Not Found: " . htmlspecialchars($route);
+        if (defined('APP_DEBUG') && APP_DEBUG) {
+            echo "404 Not Found: " . htmlspecialchars($route);
+        } else {
+            echo "404 Not Found";
+        }
         break;
 }

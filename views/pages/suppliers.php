@@ -97,7 +97,7 @@ include dirname(__DIR__) . '/layouts/header.php';
 
             <!-- Structured Address -->
             <div style="background: var(--bg-tertiary); padding: 16px; border-radius: var(--border-radius-md); margin-bottom: 16px; border: 1px solid var(--border-color);">
-                <label class="form-label" style="font-weight: 600; margin-bottom: 12px; display: block;">Address <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
+                <div class="form-label" style="font-weight: 600; margin-bottom: 12px; display: block;">Address <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></div>
                 
                 <div class="form-group" style="margin-bottom: 12px;">
                     <input type="text" class="form-control" id="addrStreet" placeholder="Street / Building Name">

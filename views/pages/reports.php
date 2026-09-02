@@ -82,7 +82,7 @@ include dirname(__DIR__) . '/layouts/header.php';
 <!-- Forecast Chart Container -->
 <div class="card" id="forecastChartContainer" style="display:none; margin-bottom:16px;">
     <div class="card-body">
-        <h4 style="margin:0 0 16px; font-weight: 500; font-size: 1.1rem; color: var(--text-main);">Demand Forecast (Aggr. Next 14 Days)</h4>
+        <h4 style="margin:0 0 16px; font-weight: 500; font-size: 1.1rem; color: var(--text-main);">Store-wide Demand Forecast (30 Days)</h4>
         <div style="height: 250px;">
             <canvas id="forecastChart"></canvas>
         </div>
@@ -213,7 +213,7 @@ function renderForecastChart(chartData) {
             labels: chartData.labels,
             datasets: [
                 {
-                    label: 'Historical Demand',
+                    label: 'Store-wide Historical Demand',
                     data: chartData.historical,
                     borderColor: '#8b5cf6',
                     backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -221,7 +221,7 @@ function renderForecastChart(chartData) {
                     tension: 0.3
                 },
                 {
-                    label: 'Projected Demand',
+                    label: 'Store-wide Projected Demand',
                     data: chartData.projected,
                     borderColor: '#f59e0b',
                     borderDash: [5, 5],
@@ -450,7 +450,7 @@ function renderReport(data) {
             break;
             
         case 'forecast':
-            thead.innerHTML = '<tr><th>SKU / Product</th><th>Risk Level <i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;cursor:help;margin-left:4px;" title="Risk of stockout based on projected demand vs current stock."></i></th><th>Forecast Demand (30d)</th><th>Confidence <i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;cursor:help;margin-left:4px;" title="Accuracy level based on historical sales consistency."></i></th><th>Suggested Reorder</th><th>Action</th></tr>';
+            thead.innerHTML = '<tr><th>SKU / Product</th><th>Risk Level <span title="Risk of stockout based on projected demand vs current stock." style="cursor:help;"><i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;margin-left:4px;"></i></span></th><th>Forecast Demand (30d)</th><th>Confidence <span title="Accuracy level based on historical sales consistency." style="cursor:help;"><i data-lucide="info" style="width:14px;height:14px;color:var(--text-muted);vertical-align:middle;margin-left:4px;"></i></span></th><th>Suggested Reorder</th><th>Action</th></tr>';
             tbody.innerHTML = rows.map(r => {
                 let riskBadge = '';
                 if (r.risk_level === 'Critical') riskBadge = '<span class="badge badge-rose">Critical</span>';

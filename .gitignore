@@ -23,3 +23,8 @@ vendor/
 
 # Backups
 /backups/
+
+# Logs (keep directory structure, ignore contents)
+/logs/*
+!/logs/.gitkeep
+!/logs/.htaccess

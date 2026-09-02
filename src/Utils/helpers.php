@@ -155,28 +155,49 @@ function getCategoryPrefix(string $name): string {
 }
 
 /**
- * Handle file upload
+ * Handle file upload (hardened)
  */
 function handleImageUpload(array $file, string $directory = ''): ?string {
+    // Check for upload errors
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+
     $uploadDir = UPLOAD_DIR . ($directory ? $directory . '/' : '');
     
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
     
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     $maxSize = 5 * 1024 * 1024; // 5MB
-    
-    if (!in_array($file['type'], $allowedTypes)) {
-        return null;
-    }
     
     if ($file['size'] > $maxSize) {
         return null;
     }
+
+    // Whitelist allowed extensions (don't trust client-supplied type)
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    if (!in_array($ext, $allowedExtensions)) {
+        return null;
+    }
+
+    // Server-side MIME validation using file content analysis (not browser header)
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $detectedType = $finfo->file($file['tmp_name']);
+    $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($detectedType, $allowedMimeTypes)) {
+        return null;
+    }
+
+    // Verify it's actually a valid image (prevents disguised PHP files)
+    $imageInfo = @getimagesize($file['tmp_name']);
+    if ($imageInfo === false) {
+        return null;
+    }
     
-    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $filename = uniqid('prod_', true) . '.' . $ext;
+    // Generate safe filename (no user input in filename, no path traversal)
+    $filename = bin2hex(random_bytes(16)) . '.' . $ext;
     $filepath = $uploadDir . $filename;
     
     if (move_uploaded_file($file['tmp_name'], $filepath)) {

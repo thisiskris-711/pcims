@@ -9,9 +9,11 @@ require_once __DIR__ . '/env_loader.php';
 loadEnv(dirname(__DIR__) . '/.env');
 
 // App info
+define('APP_ENV', $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production');
+define('APP_DEBUG', APP_ENV === 'development');
 define('APP_NAME', $_ENV['APP_NAME'] ?? getenv('APP_NAME') ?: 'InventoryPro');
 define('APP_VERSION', $_ENV['APP_VERSION'] ?? getenv('APP_VERSION') ?: '1.0.0');
-define('APP_URL', $_ENV['APP_URL'] ?? getenv('APP_URL') ?: '/antigravitytest');
+define('APP_URL', $_ENV['APP_URL'] ?? getenv('APP_URL') ?: '/pcims/public');
 
 // File paths
 define('ROOT_PATH', dirname(__DIR__));
@@ -55,10 +57,26 @@ if (session_status() === PHP_SESSION_NONE) {
 // Timezone
 date_default_timezone_set('Asia/Manila');
 
-// Error reporting (disable in production)
+// Error reporting — environment-aware
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+$isApiRequest = isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false;
+if (APP_DEBUG && !$isApiRequest) {
+    // Show errors on page views in development only (never on API routes)
+    ini_set('display_errors', 1);
+} else {
+    ini_set('display_errors', 0);
+}
 ini_set('log_errors', 1);
+ini_set('error_log', ROOT_PATH . '/logs/php_errors.log');
+
+// PHP-level security headers (defense-in-depth, supplements .htaccess)
+header_remove('X-Powered-By');
+if (!headers_sent()) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-XSS-Protection: 1; mode=block');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+}
 
 // Include core files
 require_once __DIR__ . '/database.php';
