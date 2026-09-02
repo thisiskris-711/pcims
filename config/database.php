@@ -30,7 +30,7 @@ function getDB(): PDO {
         } catch (PDOException $e) {
             error_log('Database connection failed: ' . $e->getMessage());
             http_response_code(500);
-            die(json_encode(['error' => 'A database connection error occurred. Please try again later.']));
+            die(json_encode(['error' => 'Database error: ' . $e->getMessage()]));
         }
     }
     
