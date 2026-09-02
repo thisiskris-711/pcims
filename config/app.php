@@ -13,7 +13,7 @@ define('APP_ENV', $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: 'production');
 define('APP_DEBUG', APP_ENV === 'development');
 define('APP_NAME', $_ENV['APP_NAME'] ?? getenv('APP_NAME') ?: 'InventoryPro');
 define('APP_VERSION', $_ENV['APP_VERSION'] ?? getenv('APP_VERSION') ?: '1.0.0');
-define('APP_URL', $_ENV['APP_URL'] ?? getenv('APP_URL') ?: '/pcims/public');
+define('APP_URL', rtrim($_ENV['APP_URL'] ?? getenv('APP_URL') ?: '/pcims/public', " \t\n\r\0\x0B/"));
 
 // File paths
 define('ROOT_PATH', dirname(__DIR__));
